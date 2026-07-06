@@ -55,9 +55,3 @@ name the hackathon actually gives you access to.
    system prompts in `specialists.py` are a good starting point but may need
    iteration to get the LLM writing clean, working pandas code consistently.
 
-## Known limitations (be upfront about these if judges ask)
-- Data is fully synthetic, not real patient data (intentional — avoids
-  privacy/access issues, and lets the demo be reliable).
-- The rule-based fallback logic uses real clinical reference ranges (eGFR/UACR
-  early cutoffs, lipid panel thresholds, etc.) but is NOT a validated medical
-  tool — frame it as a hackathon prototype/proof-of-concept, not clinical software.
