@@ -25,11 +25,15 @@ you don't have access to for real people.
 """
 
 import argparse
+from pathlib import Path
+
 import pandas as pd
 
 from specialists import SPECIALISTS, run_specialist
 from synthesis_agent import synthesize
 from agent_core import has_llm
+
+BACKEND_DIR = Path(__file__).resolve().parent
 
 
 def run_patient(patient_row: dict, verbose=True):
@@ -63,7 +67,7 @@ def main():
     parser.add_argument("--check-accuracy", action="store_true", help="Compare results against answer_key.csv")
     args = parser.parse_args()
 
-    df = pd.read_csv("real_patients.csv")
+    df = pd.read_csv(BACKEND_DIR / "real_patients.csv")
 
     if args.patient:
         df = df[df["patient_id"] == args.patient]

@@ -1,0 +1,41 @@
+# ─── Node / Next.js ───────────────────────────────────────────────────────
+node_modules/
+.next/
+out/
+.turbo/
+frontend/.env
+frontend/.env.local
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# ─── Python / Backend ─────────────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+backend/.env
+
+# ─── Jupyter / Notebooks ──────────────────────────────────────────────────
+.ipynb_checkpoints/
+notebooks/datasets/*.csv
+!notebooks/datasets/.gitkeep
+
+# ─── Env & Secrets ─────────────────────────────────────────────────────────
+.env
+.env.local
+.env.*.local
+*.key
+*.pem
+
+# ─── OS / Editor ──────────────────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+*.swp
+
+# ─── Logs ──────────────────────────────────────────────────────────────────
+logs/
+*.log

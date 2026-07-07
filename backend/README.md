@@ -1,81 +1,94 @@
-# Diabetic Complication Early-Warning System
+# Backend Overview
 
-## What this is
-A working, tested pipeline using REAL patient data (CDC NHANES 2017-2018 survey):
-reads real diabetic patient labs -> 4 specialist AI agents each assess a different
-complication risk using validated clinical formulas -> a synthesis agent gives the
-doctor a plain-English referral recommendation. Built for the AMD Unicorn Track hackathon.
+This backend is the reasoning engine behind the Diabetic Complication Swarm prototype. It loads patient data, runs specialist-style analysis across multiple diabetes-related complication domains, and produces a synthesis recommendation that can be shown in the frontend dashboard.
 
-## Files
-- `build_real_dataset.py` — merges the raw NHANES .xpt files into `real_patients.csv`.
-  Already run once; rerun if you download additional NHANES files or want to widen
-  the A1c filter range.
-- `real_patients.csv` — 159 REAL (de-identified) NHANES respondents whose A1c falls
-  in the 6.5-7.2% "diagnosed but looks controlled" range. This is not synthetic data.
-- `agent_core.py` — handles calling the real Fireworks LLM API + executing agent code safely
-- `specialists.py` — the 4 specialist agents (renal, neuropathy, retinal, cardiovascular),
-  using real validated clinical cutoffs (2021 CKD-EPI eGFR equation, published UACR/lipid thresholds)
-- `synthesis_agent.py` — combines specialist outputs into one referral recommendation
-- `run_pipeline.py` — the main script that runs everything end-to-end
+## What the backend does
 
-## Where the real data comes from
-CDC NHANES (National Health and Nutrition Examination Survey), 2017-2018 cycle.
-Files used: DEMO_J (demographics), BPX_J (blood pressure), GHB_J (A1c),
-BIOPRO_J (creatinine), HDL_J, TCHOL_J, TRIGLY_J (lipid panel), ALB_CR_J (urine
-albumin/creatinine ratio for kidney marker). All public, de-identified, government
-data — no privacy/IRB issues.
+The system currently supports four specialist analysis paths:
 
-## Important honest limitation (mention this if asked)
-NHANES is a single-visit survey, not longitudinal — so there's no real day-to-day
-glucose variability or diabetes-duration-since-diagnosis data available. The
-neuropathy and retinal specialists were adjusted to use age + A1c level as
-real-but-simplified proxy markers instead, and their code explicitly says so in
-its reasoning output. This is a normal, disclosed research limitation, not a fake result.
+- Renal risk
+- Neuropathy risk
+- Retinal risk
+- Cardiovascular risk
 
-## How to run it RIGHT NOW (no API key needed)
+Each specialist produces a risk score, a flag, and reasoning. A synthesis layer then combines those outputs into a concise recommendation for the clinician-facing experience.
+
+## Core files
+
+- [main.py](main.py) — FastAPI entry point that exposes patient listing and analysis endpoints for the frontend
+- [run_pipeline.py](run_pipeline.py) — end-to-end pipeline runner for executing the workflow on one or more patients
+- [specialists.py](specialists.py) — specialist analysis logic and fallback rules for each risk domain
+- [synthesis_agent.py](synthesis_agent.py) — synthesis layer that turns specialist results into a simple referral-style recommendation
+- [agent_core.py](agent_core.py) — wrapper for LLM-based execution and safe fallback behavior
+- [build_real_dataset.py](build_real_dataset.py) — prepares the patient dataset from source files
+- [real_patients.csv](real_patients.csv) — the patient dataset used by the pipeline
+
+## Data source and realism
+
+The backend is built around a real patient dataset workflow using CDC NHANES 2017–2018 survey data. The project uses public, de-identified survey data rather than synthetic patient records.
+
+That said, this is still a prototype and not a clinical-grade decision support product. NHANES is a single-visit survey dataset, so it does not contain longitudinal glucose trends or full diabetes-duration history. The specialists therefore use simplified but transparent proxy logic where needed, and the backend explicitly communicates that limitation in its reasoning output.
+
+## How the pipeline works
+
+1. Load the patient dataset.
+2. Run each specialist over the patient record.
+3. Collect the specialist risk outputs.
+4. Synthesize those outputs into a final recommendation.
+5. Return the results to the frontend or print them in the terminal.
+
+## Running it locally
+
+### 1. Create and activate a Python environment
+
+```bash
+cd backend
+python -m venv .venv
+source .venv/bin/activate
 ```
-pip install pandas numpy requests
-python3 run_pipeline.py
-```
-This runs on all 159 real patients using rule-based fallback logic (real clinical
-cutoffs, already tested end-to-end with no crashes) and prints a full report + summary.
 
-To demo just one patient live (good for the pitch) — P93758 is a strong example,
-flagged for 3 of 4 risk domains simultaneously with a real LDL of 354 mg/dL:
-```
-python3 run_pipeline.py --patient P93758
+### 2. Install dependencies
+
+```bash
+pip install -r requirements.txt
 ```
 
-## How to switch to REAL Fireworks LLM agents (do this once you have hackathon API access)
+### 3. Run the pipeline directly
+
+```bash
+python run_pipeline.py --patient P93758
 ```
-export FIREWORKS_API_KEY="your-actual-key"
-python3 run_pipeline.py
+
+This runs the workflow for a sample patient and demonstrates the full analysis loop.
+
+### 4. Start the API server
+
+```bash
+python main.py
 ```
-That's it — nothing else changes. The specialists will now have the LLM write and
-execute its own analysis code live, instead of using the fallback template. If the
-API call fails for any reason (bad key, rate limit, etc), it automatically falls
-back to the rule-based version so the demo never just crashes.
 
-You may need to change `FIREWORKS_MODEL` in `agent_core.py` to whatever model
-name the hackathon actually gives you access to.
+The API will be available at:
 
-## What's left to build (the actual remaining work)
-1. **Frontend/demo display** — right now this is a command-line tool. For the actual
-   stage demo, you want something visual: a simple web page or Jupyter notebook
-   view that shows each specialist "thinking" and the CSV data, live. This is the
-   biggest remaining piece.
-2. **AMD infra hookup** — confirm with organizers whether Fireworks credits route
-   through AMD GPUs directly, or whether you need to also run something locally via
-   ROCm to satisfy the "use of AMD platforms" judging criterion.
-3. **Rehearse the demo narrative** — practice explaining WHY this matters (busy
-   generalist doctor needs specialist-level synthesis) before diving into the tech.
-4. **Optional: tune the LLM prompts** — once you have real API access, the specialist
-   system prompts in `specialists.py` are a good starting point but may need
-   iteration to get the LLM writing clean, working pandas code consistently.
+- http://localhost:8000/api/patients
+- http://localhost:8000/api/analyze/<patient_id>
 
-## Known limitations (be upfront about these if judges ask)
-- Data is fully synthetic, not real patient data (intentional — avoids
-  privacy/access issues, and lets the demo be reliable).
-- The rule-based fallback logic uses real clinical reference ranges (eGFR/UACR
-  early cutoffs, lipid panel thresholds, etc.) but is NOT a validated medical
-  tool — frame it as a hackathon prototype/proof-of-concept, not clinical software.
+## LLM and fallback behavior
+
+The backend can run in two modes:
+
+- Deterministic fallback mode: works without an API key and uses rule-based logic.
+- LLM-assisted mode: if the relevant environment variables are present, the system can use an LLM backend for generation and execution.
+
+If the LLM path fails at runtime, the system falls back gracefully so the demo remains usable.
+
+## Current status
+
+The backend is now in a working prototype stage:
+
+- pipeline execution: working
+- specialist analysis: implemented
+- synthesis layer: implemented
+- API surface: available
+- local startup path: improved for reliability
+
+The remaining work is mainly around hardening, clearer configuration, and polishing the overall product experience.
