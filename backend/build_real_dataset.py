@@ -4,27 +4,40 @@ build_real_dataset.py
 Merges real NHANES 2017-2018 lab files into one clean patient-level CSV,
 using validated clinical formulas (not invented heuristics) wherever possible.
 
-Input files expected (place in same folder, or edit paths below):
+Input files expected in the `nhanes_data/` subfolder next to this script
+(create it and drop the .xpt files in, or edit NHANES_DATA_DIR below):
   DEMO_J.xpt, BPX_J.xpt, GHB_J.xpt, BIOPRO_J.xpt, HDL_J.xpt, TCHOL_J.xpt,
-  TRIGLY_J.xpt, ALB_CR_J.xpt
+  TRIGLY_J.xpt, ALB_CR_J.xpt, DIQ_J.xpt
 
-Output: real_patients.csv
+Output: real_patients.csv (written next to this script)
 """
+
+from pathlib import Path
 
 import pandas as pd
 import numpy as np
 
+BACKEND_DIR = Path(__file__).resolve().parent
+NHANES_DATA_DIR = BACKEND_DIR / "nhanes_data"
+
 FILES = {
-    "DEMO": "/mnt/user-data/uploads/DEMO_J.xpt",
-    "BPX": "/mnt/user-data/uploads/BPX_J.xpt",
-    "GHB": "/mnt/user-data/uploads/GHB_J.xpt",
-    "BIOPRO": "/mnt/user-data/uploads/BIOPRO_J.xpt",
-    "HDL": "/mnt/user-data/uploads/HDL_J.xpt",
-    "TCHOL": "/mnt/user-data/uploads/TCHOL_J.xpt",
-    "TRIGLY": "/mnt/user-data/uploads/TRIGLY_J.xpt",
-    "ALB_CR": "/mnt/user-data/uploads/ALB_CR_J.xpt",
-    "DIQ": "/mnt/user-data/uploads/DIQ_J.xpt",
+    "DEMO": NHANES_DATA_DIR / "DEMO_J.xpt",
+    "BPX": NHANES_DATA_DIR / "BPX_J.xpt",
+    "GHB": NHANES_DATA_DIR / "GHB_J.xpt",
+    "BIOPRO": NHANES_DATA_DIR / "BIOPRO_J.xpt",
+    "HDL": NHANES_DATA_DIR / "HDL_J.xpt",
+    "TCHOL": NHANES_DATA_DIR / "TCHOL_J.xpt",
+    "TRIGLY": NHANES_DATA_DIR / "TRIGLY_J.xpt",
+    "ALB_CR": NHANES_DATA_DIR / "ALB_CR_J.xpt",
+    "DIQ": NHANES_DATA_DIR / "DIQ_J.xpt",
 }
+
+missing = [str(path) for path in FILES.values() if not path.exists()]
+if missing:
+    raise FileNotFoundError(
+        "Missing NHANES source file(s):\n  " + "\n  ".join(missing) +
+        f"\n\nPlace the required .xpt files in {NHANES_DATA_DIR} before running this script."
+    )
 
 dfs = {name: pd.read_sas(path, format="xport") for name, path in FILES.items()}
 
@@ -107,6 +120,6 @@ final_cols = [
 ]
 target = target[final_cols].reset_index(drop=True)
 
-target.to_csv("real_patients.csv", index=False)
+target.to_csv(BACKEND_DIR / "real_patients.csv", index=False)
 print(f"Real NHANES patients matching target A1c range (6.5-7.2%): {len(target)}")
 print(target.head(10).to_string(index=False))

@@ -38,6 +38,18 @@ FEATHERLESS_URL = "https://api.featherless.ai/v1/chat/completions"
 # Cache so we only test connectivity once per process, not once per specialist.
 _STATUS_CACHE = {"checked": False, "provider": None}
 
+# Counts actual call_llm() invocations (including retries), so the Benchmark tab
+# can show a real number. Reset at the start of each /api/analyze request.
+_LLM_CALL_COUNTER = {"count": 0}
+
+
+def reset_llm_call_counter() -> None:
+    _LLM_CALL_COUNTER["count"] = 0
+
+
+def get_llm_call_count() -> int:
+    return _LLM_CALL_COUNTER["count"]
+
 
 def call_fireworks(system_prompt: str, user_prompt: str) -> str:
     import requests
@@ -126,6 +138,7 @@ def call_llm(system_prompt: str, user_prompt: str) -> str:
         raise RuntimeError("LLM_OFFLINE: no configured backend (Fireworks/Featherless) is reachable.")
 
     fn = dict(_PROVIDERS)[provider]
+    _LLM_CALL_COUNTER["count"] += 1
     return fn(system_prompt, user_prompt)
 
 
@@ -146,8 +159,27 @@ def run_agent_code(code: str, patient_row: dict) -> dict:
             "risk_score": 0.0,
             "flag": False,
             "reasoning": f"[EXECUTION ERROR] {e}\n{traceback.format_exc(limit=2)}",
+            "steps": [],
         }
     result = namespace.get("result")
     if not isinstance(result, dict):
-        return {"risk_score": 0.0, "flag": False, "reasoning": "[ERROR] agent code did not set `result` dict"}
+        return {"risk_score": 0.0, "flag": False, "reasoning": "[ERROR] agent code did not set `result` dict", "steps": []}
+    # Allow (but don't require) executed code to set a "steps" key in `result`.
+    # Fallback code doesn't set it, so it defaults to an empty list here and gets
+    # overridden by specialists.py with generated steps.
+    result.setdefault("steps", [])
+
+    # Defensive clamp on whatever the executed code (LLM-written or fallback)
+    # actually computed for risk_score. This is NOT a hardcoded/fake output -
+    # it's a post-execution guard on the AI's own numeric result, since
+    # LLM-generated scoring code has no guarantee it stays inside the promised
+    # 0-1 range (the fallback templates already self-clamp via min(x, 1.0), but
+    # arbitrary LLM code doesn't). The real number the AI computed is preserved
+    # unless it's out of contract, in which case it's bounded, never replaced.
+    try:
+        raw_score = float(result.get("risk_score", 0.0))
+    except (TypeError, ValueError):
+        raw_score = 0.0
+    result["risk_score"] = max(0.0, min(1.0, raw_score))
+
     return result

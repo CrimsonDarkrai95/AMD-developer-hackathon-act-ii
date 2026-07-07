@@ -124,6 +124,19 @@ def run_patient(app, patient_row: dict, verbose=True):
     return final_state
 
 
+def run_patient_streaming(app, patient_row: dict):
+    """Yields (node_name, node_output) tuples as each graph node completes,
+    instead of blocking until the whole graph finishes. Node completion order
+    is NOT guaranteed to be renal->neuropathy->retinal->cardiovascular since
+    all 4 specialists fan out from START in parallel - it'll be whichever
+    finishes first. Consumers should key off node_name, not assume order.
+    """
+    for chunk in app.stream({"patient": patient_row}, stream_mode="updates"):
+        # chunk is a dict like {"renal": {"renal_result": {...}}}
+        for node_name, node_output in chunk.items():
+            yield node_name, node_output
+
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--patient", type=str, default=None)

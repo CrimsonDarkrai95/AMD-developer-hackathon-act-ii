@@ -6,6 +6,7 @@ and clinical recommendations.
 """
 
 import json
+import time
 from agent_core import has_llm, call_llm
 
 SYNTHESIS_SYSTEM_PROMPT = """You are the Chief Medical Synthesis Agent. You are reviewing clinical risk analysis reports from a multidisciplinary panel of diabetic organ specialists (renal, neuropathy, retinal, cardiovascular) for a single patient.
@@ -95,7 +96,18 @@ def synthesize_fallback(patient_row: dict, specialist_results: list) -> dict:
 
 
 def synthesize(patient_row: dict, specialist_results: list) -> dict:
-    """Entry point for the synthesis agent. Tries LLM first, falls back to deterministic rules."""
+    """Entry point for the synthesis agent. Tries LLM first, falls back to deterministic rules.
+
+    Returns {top_concern, recommendation, duration_ms, used_llm, synthesis_error}.
+    synthesis_error is None unless an LLM attempt was made and failed (bad JSON,
+    network error, etc.) - in which case the failure reason is surfaced instead
+    of being silently swallowed, so Agent Logs can show why the fallback ran.
+    """
+    start = time.perf_counter()
+    synthesis_error = None
+    used_llm = False
+    result = None
+
     if has_llm():
         user_prompt = (
             f"Patient Demographics: Age={patient_row.get('age')}, Sex={patient_row.get('sex')}, "
@@ -107,14 +119,25 @@ def synthesize(patient_row: dict, specialist_results: list) -> dict:
                 f"- Specialist: {res.get('specialist')}, Risk: {res.get('risk_score')}, "
                 f"Flagged: {res.get('flag')}\n  Reasoning: {res.get('reasoning')}\n"
             )
-        
+
         user_prompt += "\nCompile the final summary. Output ONLY a valid JSON object."
-        
+
         try:
             raw_response = call_llm(SYNTHESIS_SYSTEM_PROMPT, user_prompt)
-            return extract_json(raw_response)
+            result = extract_json(raw_response)
+            used_llm = True
         except Exception as e:
-            # Fall back silently on any error to keep the system robust
-            pass
+            # Previously a silent `except Exception: pass`. Now the reason a
+            # live LLM synthesis attempt failed (malformed JSON, network error,
+            # etc.) is captured instead of disappearing.
+            synthesis_error = str(e)
 
-    return synthesize_fallback(patient_row, specialist_results)
+    if result is None:
+        result = synthesize_fallback(patient_row, specialist_results)
+        used_llm = False
+
+    duration_ms = int((time.perf_counter() - start) * 1000)
+    result["duration_ms"] = duration_ms
+    result["used_llm"] = used_llm
+    result["synthesis_error"] = synthesis_error
+    return result
