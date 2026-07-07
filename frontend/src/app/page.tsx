@@ -2,19 +2,26 @@
 
 import { useEffect, useState } from "react";
 import { PatientOverviewHeader } from "@/features/dashboard/components/PatientOverviewHeader";
-import { OrganRiskMap } from "@/features/dashboard/components/OrganRiskMap";
-import { RiskForecastPanel } from "@/features/dashboard/components/RiskForecastPanel";
 import { LabsPanel } from "@/features/dashboard/components/LabsPanel";
-import { SynthesisCallout } from "@/features/dashboard/components/SynthesisCallout";
 import { LiveAgentTerminal } from "@/features/dashboard/components/LiveAgentTerminal";
 import { ReportExport } from "@/features/dashboard/components/ReportExport";
+import { WelcomeModal } from "@/features/dashboard/components/WelcomeModal";
+import { SwarmDiagnosticsTabs } from "@/features/dashboard/components/SwarmDiagnosticsTabs";
 import type {
   PatientDropdownItem,
   Demographics,
   Labs,
   SpecialistResult,
   SynthesisReport,
+  BenchmarkSummary,
 } from "@/types";
+
+const specialistLabels: Record<string, string> = {
+  retinal: "RETINAL_SPECIALIST",
+  renal: "RENAL_SPECIALIST",
+  neuropathy: "NEUROPATHY_SPECIALIST",
+  cardiovascular: "CARDIOVASCULAR_SPECIALIST",
+};
 
 export default function DashboardPage() {
   const [patients, setPatients] = useState<PatientDropdownItem[]>([]);
@@ -24,11 +31,19 @@ export default function DashboardPage() {
   const [labs, setLabs] = useState<Labs | null>(null);
   const [specialists, setSpecialists] = useState<SpecialistResult[]>([]);
   const [synthesis, setSynthesis] = useState<SynthesisReport | null>(null);
+  const [benchmark, setBenchmark] = useState<BenchmarkSummary | null>(null);
 
   const [isPatientsLoading, setIsPatientsLoading] = useState<boolean>(true);
   const [isPipelineRunning, setIsPipelineRunning] = useState<boolean>(false);
-  const [errorMessage, setErrorMessage] = useState<string>(" ");
+  const [errorMessage, setErrorMessage] = useState<string>("");
   const [llmStatus, setLlmStatus] = useState<string>("checking...");
+  const [llmModel, setLlmModel] = useState<string | null>(null);
+
+  // Onboarding welcome modal state
+  const [isWelcomeOpen, setIsWelcomeOpen] = useState<boolean>(false);
+
+  // Real-time terminal logs state
+  const [terminalLogs, setTerminalLogs] = useState<string[]>([]);
 
   useEffect(() => {
     async function loadPatients() {
@@ -55,96 +70,238 @@ export default function DashboardPage() {
         if (res.ok) {
           const data = await res.json();
           setLlmStatus(data.llm_status);
+          setLlmModel(data.model);
         } else {
           setLlmStatus("offline");
+          setLlmModel(null);
         }
       } catch {
         setLlmStatus("offline");
+        setLlmModel(null);
       }
+    }
+
+    // Check if user has seen welcome modal
+    const onboarded = localStorage.getItem("diasentry_onboarded");
+    if (onboarded !== "true") {
+      setIsWelcomeOpen(true);
     }
 
     loadPatients();
     loadStatus();
   }, []);
 
-  async function triggerPipelineAnalysis(patientId: string) {
-    if (!patientId) return;
-    try {
-      setIsPipelineRunning(true);
-      setErrorMessage("");
-
-      const res = await fetch(`/api/analyze`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ patientId }),
-      });
-
-      if (!res.ok) throw new Error(`Pipeline breakdown: API returned code ${res.status}`);
-      const report = await res.json();
-
-      setDemographics(report.demographics);
-      setLabs(report.labs);
-      setSpecialists(report.specialists);
-      setSynthesis(report.synthesis);
-
-      // Refresh the status in case of config updates
-      try {
-        const statusRes = await fetch("/api/status");
-        if (statusRes.ok) {
-          const statusData = await statusRes.json();
-          setLlmStatus(statusData.llm_status);
-        }
-      } catch {
-        // ignore status refresh error
+  // Update demographics preview when patient selection changes
+  useEffect(() => {
+    if (selectedPatientId && patients.length > 0) {
+      const match = patients.find((p) => p.patient_id === selectedPatientId);
+      if (match) {
+        setDemographics({
+          age: match.age,
+          sex: match.sex,
+          a1c_percent: match.a1c_percent,
+          years_with_diabetes: 0, // Filled in real-time when neuropathy specialist streams
+        });
+        setLabs(null);
+        setSpecialists([]);
+        setSynthesis(null);
+        setBenchmark(null);
+        setTerminalLogs([]);
       }
-    } catch (err: any) {
-      setErrorMessage(err.message || "Execution loop experienced an unhandled fault.");
-    } finally {
-      setIsPipelineRunning(false);
     }
+  }, [selectedPatientId, patients]);
+
+  function triggerPipelineAnalysis(patientId: string) {
+    if (!patientId) return;
+
+    // Reset pipeline state
+    setSpecialists([]);
+    setSynthesis(null);
+    setBenchmark(null);
+    setLabs(null);
+    setErrorMessage("");
+    setIsPipelineRunning(true);
+
+    // Reset Demographics preview with baseline data from selector
+    const selected = patients.find((p) => p.patient_id === patientId);
+    if (selected) {
+      setDemographics({
+        age: selected.age,
+        sex: selected.sex,
+        a1c_percent: selected.a1c_percent,
+        years_with_diabetes: 0,
+      });
+    }
+
+    // Initialize System Log
+    const initLogs = [
+      "> [SYSTEM] Initializing Diabetic Complication Swarm Engine...",
+      "> [SYSTEM] Loading NHANES 2017-2018 patient records structured matrix...",
+      "> [SYSTEM] Dispatching specialist analysis agents...",
+      "> [SYSTEM] Running live backend pipeline workflow...",
+      "> [SWARM] Broadcasting patient demographics through backend services..."
+    ];
+    setTerminalLogs(initLogs);
+
+    // Initialize Server-Sent Events stream connection
+    const es = new EventSource(`/api/analyze/${patientId}/stream`);
+
+    es.onmessage = (e) => {
+      const event = JSON.parse(e.data);
+
+      if (event.stage === "pipeline_complete") {
+        setBenchmark({
+          total_duration_ms: event.total_duration_ms,
+          agents_run: event.agents_run,
+          llm_calls_made: event.llm_calls_made,
+          provider: event.provider,
+        });
+
+        setTerminalLogs((prev) => [
+          ...prev,
+          `> [SYSTEM] Swarm pipeline execution finished in ${event.total_duration_ms} ms.`,
+          `> [SYSTEM] Provider mode: ${event.provider || "Rule-based Fallback (offline)"}.`
+        ]);
+
+        es.close();
+        setIsPipelineRunning(false);
+        return;
+      }
+
+      if (event.stage === "synthesis") {
+        const synthesisResult = event.data["synthesis"];
+        setSynthesis(synthesisResult);
+        setTerminalLogs((prev) => [
+          ...prev,
+          `> >>> SYNTHESIS: ${synthesisResult.recommendation}`
+        ]);
+      } else {
+        const result = event.data[`${event.stage}_result`];
+
+        // Append specialist results safely
+        setSpecialists((prev) => {
+          const filtered = prev.filter((s) => s.specialist !== result.specialist);
+          return [...filtered, result];
+        });
+
+        // Accumulate lab readings in-place
+        if (result.input_labs) {
+          setLabs((prev) => ({
+            ...(prev || {}),
+            ...result.input_labs,
+          }));
+        }
+
+        // Extract years_with_diabetes to demographics if retrieved
+        if (result.specialist === "neuropathy" && result.input_labs?.years_with_diabetes) {
+          setDemographics((prev) => prev ? {
+            ...prev,
+            years_with_diabetes: result.input_labs.years_with_diabetes,
+          } : null);
+        }
+
+        const name = specialistLabels[result.specialist] || result.specialist.toUpperCase();
+        const flagMarker = result.flag ? "⚠️ FLAGGED" : "clear";
+        setTerminalLogs((prev) => [
+          ...prev,
+          `> [${name}] risk=${result.risk_score.toFixed(2)} [${flagMarker}]`,
+          `> [${name}] -> ${result.reasoning}`
+        ]);
+      }
+    };
+
+    es.onerror = () => {
+      es.close();
+      setErrorMessage("Streaming execution connection interrupted.");
+      setIsPipelineRunning(false);
+    };
   }
+
+  const handleCloseWelcome = () => {
+    setIsWelcomeOpen(false);
+    localStorage.setItem("diasentry_onboarded", "true");
+  };
 
   return (
     <main className="mx-auto flex min-h-screen max-w-[1600px] flex-col gap-6 bg-slate-50 p-4 font-sans antialiased sm:p-6 lg:p-12">
 
-      <header className="flex flex-col gap-4 border-b border-slate-200 pb-6 md:flex-row md:items-center md:justify-between">
-        <div className="flex flex-col gap-1">
-          <h1 className="text-3xl font-bold tracking-tight text-slate-900">
-            Clinician Dashboard
-          </h1>
-          <p className="text-sm sm:text-base text-slate-500">
-            Diabetic complication risk triage — multi-agent panel synthesis
+      {/* Onboarding Welcome Modal */}
+      <WelcomeModal isOpen={isWelcomeOpen} onClose={handleCloseWelcome} />
+
+      {/* CatalystMD-Style Header */}
+      <header className="flex flex-col gap-5 border-b border-slate-200 pb-6 md:flex-row md:items-center md:justify-between">
+        <div className="flex flex-col gap-2">
+          <div className="flex items-center gap-2.5">
+            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-emerald-600 text-white shadow-sm shadow-emerald-600/20">
+              <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
+              </svg>
+            </div>
+            <h1 className="text-3xl font-extrabold tracking-tight text-slate-900">
+              DiaSentry
+            </h1>
+          </div>
+          <p className="text-sm font-semibold text-slate-500">
+            AI-Powered Multi-Agent Diabetic Complication Early-Warning Triage Panel
           </p>
+          <div className="flex flex-wrap gap-2 pt-1">
+            <span className="rounded-full bg-slate-100 px-2.5 py-0.5 text-[10px] font-bold text-slate-500 uppercase tracking-wide border border-slate-200/50">
+              4 Specialist Agents
+            </span>
+            <span className="rounded-full bg-slate-100 px-2.5 py-0.5 text-[10px] font-bold text-slate-500 uppercase tracking-wide border border-slate-200/50">
+              NHANES Dataset
+            </span>
+            <span className="rounded-full bg-slate-100 px-2.5 py-0.5 text-[10px] font-bold text-slate-500 uppercase tracking-wide border border-slate-200/50">
+              Multi-Agent Synthesis
+            </span>
+            <span className="rounded-full bg-sky-50 border border-sky-100/50 px-2.5 py-0.5 text-[10px] font-bold text-sky-700 uppercase tracking-wide">
+              Diabetes / Chronic Disease
+            </span>
+          </div>
         </div>
 
-        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 rounded-2xl border border-slate-200 bg-white p-3 sm:px-4 sm:py-2.5 transition-all duration-200 hover:border-slate-300 hover:shadow-sm">
-          <label htmlFor="patient-select" className="whitespace-nowrap text-xs font-semibold uppercase tracking-wider text-slate-400">
-            Select Record:
-          </label>
-          {isPatientsLoading ? (
-            <span className="animate-pulse text-sm text-slate-400 font-medium">Index mapping...</span>
-          ) : (
-            <select
-              id="patient-select"
-              value={selectedPatientId}
-              onChange={(e) => setSelectedPatientId(e.target.value)}
-              disabled={isPipelineRunning}
-              className="cursor-pointer bg-transparent text-sm font-mono font-semibold text-slate-900 focus:outline-none disabled:opacity-40 w-full sm:w-auto"
-            >
-              {patients.map((p) => (
-                <option key={p.patient_id} value={p.patient_id}>
-                  {p.patient_id} (Age: {p.age}, A1c: {p.a1c_percent}%)
-                </option>
-              ))}
-            </select>
-          )}
+        <div className="flex flex-wrap items-center gap-3">
+          {/* Info Modal Trigger Button */}
           <button
-            onClick={() => triggerPipelineAnalysis(selectedPatientId)}
-            disabled={isPipelineRunning || !selectedPatientId}
-            className="rounded-xl bg-emerald-600 px-4 py-2 text-sm font-semibold text-white transition-all hover:bg-emerald-500 disabled:opacity-30 w-full sm:w-auto shadow-sm"
+            onClick={() => setIsWelcomeOpen(true)}
+            className="rounded-xl border border-slate-200 bg-white p-2.5 text-slate-400 hover:bg-slate-50 hover:text-slate-600 transition-colors shadow-sm"
+            title="System Guide Overview"
           >
-            {isPipelineRunning ? "Running Swarm..." : "Analyze Dataset"}
+            <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
           </button>
+
+          {/* Record Selector and Control Panel */}
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 rounded-2xl border border-slate-200 bg-white p-3 sm:px-4 sm:py-2.5 transition-all duration-200 hover:border-slate-300 hover:shadow-sm">
+            <label htmlFor="patient-select" className="whitespace-nowrap text-xs font-semibold uppercase tracking-wider text-slate-400">
+              Select Record:
+            </label>
+            {isPatientsLoading ? (
+              <span className="animate-pulse text-sm text-slate-400 font-medium">Index mapping...</span>
+            ) : (
+              <select
+                id="patient-select"
+                value={selectedPatientId}
+                onChange={(e) => setSelectedPatientId(e.target.value)}
+                disabled={isPipelineRunning}
+                className="cursor-pointer bg-transparent text-sm font-mono font-semibold text-slate-900 focus:outline-none disabled:opacity-40 w-full sm:w-auto"
+              >
+                {patients.map((p) => (
+                  <option key={p.patient_id} value={p.patient_id}>
+                    {p.patient_id} (Age: {p.age}, A1c: {p.a1c_percent}%)
+                  </option>
+                ))}
+              </select>
+            )}
+            <button
+              onClick={() => triggerPipelineAnalysis(selectedPatientId)}
+              disabled={isPipelineRunning || !selectedPatientId}
+              className="rounded-xl bg-emerald-600 px-4 py-2 text-sm font-semibold text-white transition-all hover:bg-emerald-500 disabled:opacity-30 w-full sm:w-auto shadow-sm"
+            >
+              {isPipelineRunning ? "Running Swarm..." : "Analyze Dataset"}
+            </button>
+          </div>
         </div>
       </header>
 
@@ -154,39 +311,46 @@ export default function DashboardPage() {
         </div>
       )}
 
+      {/* Patient Overview Summary Card */}
       <PatientOverviewHeader
         patientId={selectedPatientId || null}
         demographics={demographics}
         labs={labs}
       />
 
+      {/* Primary Dashboard Workspace Grid */}
       <section className="grid grid-cols-1 gap-6 lg:grid-cols-12">
-        <div className="flex flex-col gap-6 lg:col-span-7 xl:col-span-8">
-          <div className="rounded-3xl border border-slate-200 bg-white p-4 sm:p-6 transition-all duration-200 hover:border-slate-300 hover:shadow-md">
-            <OrganRiskMap
-              specialists={specialists}
-              synthesis={synthesis}
-              isLoading={isPipelineRunning}
-            />
-          </div>
-          <RiskForecastPanel specialists={specialists} isLoading={isPipelineRunning} />
-          <SynthesisCallout specialists={specialists} synthesis={synthesis} isLoading={isPipelineRunning} />
-        </div>
-        
-        <div className="flex flex-col gap-6 lg:col-span-5 xl:col-span-4">
-          <LiveAgentTerminal
+
+        {/* Left Column: Diagnostics Tabs Panels */}
+        <div className="lg:col-span-8 flex flex-col gap-6">
+          <SwarmDiagnosticsTabs
             specialists={specialists}
             synthesis={synthesis}
             isLoading={isPipelineRunning}
+            patientId={selectedPatientId || null}
             llmStatus={llmStatus}
+            llmModel={llmModel}
+            benchmark={benchmark}
+          />
+        </div>
+
+        {/* Right Column: Console Output & Lab Panels */}
+        <div className="lg:col-span-4 flex flex-col gap-6">
+          <LiveAgentTerminal
+            terminalLogs={terminalLogs}
+            isLoading={isPipelineRunning}
+            llmStatus={llmStatus}
+            llmModel={llmModel}
           />
           <LabsPanel labs={labs} isLoading={isPipelineRunning} />
         </div>
 
+        {/* Full-Width Footer Actions: Clinical Brief & Print Actions */}
         <div className="lg:col-span-12">
           <ReportExport
             patientId={selectedPatientId || null}
             demographics={demographics}
+            labs={labs}
             specialists={specialists}
             synthesis={synthesis}
           />

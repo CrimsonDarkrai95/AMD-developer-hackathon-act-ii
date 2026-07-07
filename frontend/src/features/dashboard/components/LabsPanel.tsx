@@ -16,10 +16,21 @@ function buildRows(labs: Labs): LabRow[] {
 interface LabsPanelProps { labs: Labs | null; isLoading: boolean; }
 
 export function LabsPanel({ labs, isLoading }: LabsPanelProps) {
-  if (isLoading || !labs) {
+  if (isLoading && !labs) {
     return (
-      <div className="rounded-3xl border border-slate-200 bg-white p-4 sm:p-6 transition-all duration-200 hover:shadow-md">
-        <p className="animate-pulse text-base text-slate-400 font-medium">Running swarm...</p>
+      <div className="rounded-3xl border border-slate-200 bg-white p-4 sm:p-6 transition-all duration-200 hover:shadow-md flex items-center justify-center min-h-[140px]">
+        <div className="flex flex-col items-center gap-2 text-slate-400">
+          <span className="h-5 w-5 animate-spin rounded-full border-2 border-sky-500 border-t-transparent" />
+          <p className="text-sm font-semibold tracking-wide uppercase text-[10px] text-slate-400">Running swarm...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!labs) {
+    return (
+      <div className="rounded-3xl border border-slate-200 bg-white p-4 sm:p-6 transition-all duration-200 hover:shadow-md flex items-center justify-center min-h-[140px] text-center">
+        <p className="text-sm text-slate-400 font-semibold tracking-wide uppercase text-[10px]">Awaiting analysis trigger...</p>
       </div>
     );
   }

@@ -1,32 +1,24 @@
 "use client";
 
 import { useState } from "react";
-
-interface SpecialistResult {
-  specialist: string;
-  risk_score: number;
-  flag: boolean;
-  reasoning: string;
-}
-
-const specialistLabels: Record<string, string> = {
-  retinal: "Retina",
-  renal: "Kidneys",
-  neuropathy: "Nerves",
-  cardiovascular: "Heart & Vessels",
-};
+import { SpecialistResult, SynthesisReport } from "@/types";
 
 interface OrganRiskMapProps {
   specialists: SpecialistResult[];
-  synthesis: {
-    top_concern: string;
-    recommendation: string;
-  } | null;
+  synthesis: SynthesisReport | null;
   isLoading?: boolean;
 }
 
+const specialistLabels: Record<string, string> = {
+  retinal: "Retina (Retinopathy)",
+  renal: "Kidneys (Nephropathy)",
+  neuropathy: "Nerves (Neuropathy)",
+  cardiovascular: "Heart & Vessels",
+};
+
 export function OrganRiskMap({ specialists = [], synthesis, isLoading = false }: OrganRiskMapProps) {
   const [hoveredSpec, setHoveredSpec] = useState<string | null>(null);
+  const [rotation, setRotation] = useState<number>(0); // 360-degree rotation
 
   if (isLoading) {
     return (
@@ -51,12 +43,11 @@ export function OrganRiskMap({ specialists = [], synthesis, isLoading = false }:
     );
   }
 
-  // Find the highest risk factor
+  // Find highest risk factor
   const highestRisk = specialists.reduce((current, item) => {
     return item.risk_score > current.risk_score ? item : current;
   }, specialists[0] ?? { specialist: "System", risk_score: 0, flag: false, reasoning: "" });
 
-  // Compute color based on score and flag status for light theme
   const getRiskColorClass = (score: number, flag: boolean) => {
     if (flag || score >= 0.7) return "text-red-700 border-red-200 bg-red-50/60 hover:bg-red-50 hover:border-red-300";
     if (score >= 0.4) return "text-amber-700 border-amber-200 bg-amber-50/60 hover:bg-amber-50 hover:border-amber-300";
@@ -69,11 +60,28 @@ export function OrganRiskMap({ specialists = [], synthesis, isLoading = false }:
     return "#10b981"; // Emerald
   };
 
-  // Find results for specific organs to render in the SVG
   const specMap = specialists.reduce((acc, item) => {
     acc[item.specialist] = item;
     return acc;
   }, {} as Record<string, SpecialistResult>);
+
+  // Rotate in 360 degrees (45-degree increments)
+  const handleRotateLeft = () => {
+    setRotation((prev) => (prev - 45 + 360) % 360);
+  };
+
+  const handleRotateRight = () => {
+    setRotation((prev) => (prev + 45) % 360);
+  };
+
+  // Convert rotation to radians for smooth opacity calculations
+  const rad = (rotation * Math.PI) / 180;
+  
+  // Anterior (front) elements are fully visible at 0 degrees, fade out at 180 degrees
+  const anteriorOpacity = Math.max(0.15, Math.cos(rad));
+  
+  // Posterior (back) elements are fully visible at 180 degrees, fade out at 0 degrees
+  const posteriorOpacity = Math.max(0.15, -Math.cos(rad));
 
   return (
     <div className="flex h-full flex-col gap-4 font-sans text-slate-800">
@@ -82,107 +90,177 @@ export function OrganRiskMap({ specialists = [], synthesis, isLoading = false }:
           <h2 className="text-sm font-semibold tracking-tight text-slate-700">
             Anatomical Risk Map
           </h2>
-          <p className="text-[10px] text-slate-400 uppercase tracking-wider">Localized Bio-markers</p>
+          <p className="text-[10px] text-slate-400 uppercase tracking-wider">360° Rotatable Silhouette</p>
         </div>
         <div className="flex items-center gap-2">
           <span className="text-[10px] uppercase tracking-wider text-slate-400 font-mono">
-            Pipeline Active
+            Orientation: {rotation}°
           </span>
           <span className="h-2 w-2 rounded-full bg-emerald-500 shadow-[0_0_6px_rgba(16,185,129,0.3)]" />
         </div>
       </div>
 
-      {/* Main Content Layout Grid */}
       <div className="flex flex-col md:flex-row gap-5 flex-1 items-stretch">
         
-        {/* SVG Silhouette Panel (Left side) */}
-        <div className="flex-1 flex items-center justify-center bg-slate-50/80 border border-slate-200/60 rounded-xl p-4 min-h-[300px] relative overflow-hidden select-none">
-          {/* Subtle Grid Background */}
-          <div className="absolute inset-0 opacity-[0.03] bg-[linear-gradient(to_right,#0f172a_1px,transparent_1px),linear-gradient(to_bottom,#0f172a_1px,transparent_1px)] bg-[size:14px_24px]" />
+        {/* SVG Silhouette Panel (Left side) - Clean minimalist style */}
+        <div className="flex-1 flex items-center justify-center bg-slate-50/80 border border-slate-200/60 rounded-3xl p-4 min-h-[340px] relative overflow-hidden select-none">
+          {/* Dotted Grid Pattern Background */}
+          <div className="absolute inset-0 opacity-[0.03] bg-[linear-gradient(to_right,#0f172a_1px,transparent_1px),linear-gradient(to_bottom,#0f172a_1px,transparent_1px)] bg-[size:14px_14px]" />
           
-          <svg className="w-full h-full max-w-[220px] max-h-[300px]" viewBox="0 0 200 280" fill="none">
-            {/* Minimalist Human Body Outline */}
-            <g stroke="#0f172a" strokeWidth="1" strokeOpacity="0.12" fill="none">
-              {/* Head */}
-              <ellipse cx="100" cy="40" rx="16" ry="20" />
-              {/* Neck */}
-              <path d="M 95,59 L 95,68 L 105,68 L 105,59" />
-              {/* Torso & Shoulders */}
-              <path d="M 60,88 C 60,88 72,70 100,70 C 128,70 140,88 140,88 L 134,175 C 134,175 120,185 100,185 C 80,185 66,175 66,175 Z" />
-              {/* Arms */}
-              <path d="M 60,88 L 45,150 C 45,150 49,154 52,151 L 63,108" />
-              <path d="M 140,88 L 155,150 C 155,150 151,154 148,151 L 137,108" />
-              {/* Legs */}
-              <path d="M 66,175 L 61,250 C 61,250 67,258 72,258 C 77,258 79,240 79,210 L 86,210 L 86,260 C 86,260 92,267 98,267 L 98,185 L 102,185 L 102,267 C 108,267 114,260 114,260 L 114,210 L 121,210 C 121,240 123,258 128,258 C 133,258 139,250 139,250 L 134,175" />
-            </g>
+          {/* Rotating SVG container with 3D perspective */}
+          <div 
+            className="w-full h-full max-w-[240px] max-h-[310px] flex items-center justify-center transition-transform duration-700 ease-out"
+            style={{ 
+              transform: `rotateY(${rotation}deg)`,
+              perspective: "800px",
+              transformStyle: "preserve-3d"
+            }}
+          >
+            <svg className="w-full h-full" viewBox="0 0 200 280" fill="none">
+              <defs>
+                {/* Premium gradient fill for the body */}
+                <linearGradient id="bodyGradient" x1="0%" y1="0%" x2="0%" y2="100%">
+                  <stop offset="0%" stopColor="#0ea5e9" stopOpacity="0.15" />
+                  <stop offset="50%" stopColor="#6366f1" stopOpacity="0.10" />
+                  <stop offset="100%" stopColor="#4f46e5" stopOpacity="0.15" />
+                </linearGradient>
+              </defs>
 
-            {/* Glowing Hotspots */}
-            
-            {/* Eyes (Retinal) */}
-            {specMap["retinal"] && (
-              <g 
-                className="cursor-pointer"
-                onMouseEnter={() => setHoveredSpec("retinal")}
-                onMouseLeave={() => setHoveredSpec(null)}
-              >
-                {/* Visual Connection Line */}
-                <path d="M 100,40 L 145,40" stroke={getHotspotColor(specMap["retinal"].risk_score, specMap["retinal"].flag)} strokeWidth="0.8" strokeDasharray="3,3" strokeOpacity={hoveredSpec === "retinal" ? "0.8" : "0.3"} />
-                {/* Left Eye */}
-                <circle cx="95" cy="38" r="3" fill={getHotspotColor(specMap["retinal"].risk_score, specMap["retinal"].flag)} fillOpacity="0.8" />
-                <circle cx="95" cy="38" r="8" stroke={getHotspotColor(specMap["retinal"].risk_score, specMap["retinal"].flag)} strokeWidth="1" strokeOpacity="0.4" className={specMap["retinal"].flag ? "animate-ping" : ""} />
-                {/* Right Eye */}
-                <circle cx="105" cy="38" r="3" fill={getHotspotColor(specMap["retinal"].risk_score, specMap["retinal"].flag)} fillOpacity="0.8" />
-                <circle cx="105" cy="38" r="8" stroke={getHotspotColor(specMap["retinal"].risk_score, specMap["retinal"].flag)} strokeWidth="1" strokeOpacity="0.4" className={specMap["retinal"].flag ? "animate-ping" : ""} />
-              </g>
-            )}
+              {/* Minimal base scanning ring at the feet */}
+              <ellipse 
+                cx="100" 
+                cy="260" 
+                rx="58" 
+                ry="9" 
+                fill="none" 
+                stroke="#cbd5e1" 
+                strokeWidth="1" 
+                strokeDasharray="4,4" 
+              />
 
-            {/* Heart (Cardiovascular) */}
-            {specMap["cardiovascular"] && (
-              <g 
-                className="cursor-pointer"
-                onMouseEnter={() => setHoveredSpec("cardiovascular")}
-                onMouseLeave={() => setHoveredSpec(null)}
-              >
-                <path d="M 94,102 L 40,102" stroke={getHotspotColor(specMap["cardiovascular"].risk_score, specMap["cardiovascular"].flag)} strokeWidth="0.8" strokeDasharray="3,3" strokeOpacity={hoveredSpec === "cardiovascular" ? "0.8" : "0.3"} />
-                <circle cx="94" cy="102" r="5" fill={getHotspotColor(specMap["cardiovascular"].risk_score, specMap["cardiovascular"].flag)} />
-                <circle cx="94" cy="102" r="11" stroke={getHotspotColor(specMap["cardiovascular"].risk_score, specMap["cardiovascular"].flag)} strokeWidth="1.5" strokeOpacity="0.5" className={(specMap["cardiovascular"].flag || specMap["cardiovascular"].risk_score >= 0.7) ? "animate-pulse" : ""} />
-              </g>
-            )}
+              {/* Symmetric high-fidelity human outline */}
+              <path 
+                d="
+                  M 100,22 
+                  C 107,22 112,26 112,33 
+                  C 112,39 108,44 104,47 
+                  L 104,52 
+                  C 111,53 121,52 127,56 
+                  C 134,60 139,67 143,74 
+                  C 147,83 151,98 153,110 
+                  C 155,117 156,124 153,128 
+                  C 150,132 144,131 141,126 
+                  L 138,116 
+                  L 135,102 
+                  L 133,160 
+                  C 133,168 129,176 123,180 
+                  L 121,245 
+                  C 120,249 116,252 112,252 
+                  C 107,252 103,245 103,232 
+                  L 101,202 
+                  L 99,202 
+                  L 97,232 
+                  C 97,245 93,252 88,252 
+                  C 84,252 80,249 79,245 
+                  L 77,180 
+                  C 71,176 67,168 67,160 
+                  L 65,102 
+                  L 62,116 
+                  L 59,126 
+                  C 56,131 50,132 47,128 
+                  C 44,124 45,117 47,110 
+                  C 49,98 53,83 57,74 
+                  C 61,67 66,60 73,56 
+                  C 79,52 89,53 96,52 
+                  L 96,47 
+                  C 92,44 88,39 88,33 
+                  C 88,26 93,22 100,22 
+                  Z" 
+                fill="url(#bodyGradient)" 
+                stroke="#64748b" 
+                strokeWidth="1.2" 
+                strokeOpacity="0.4"
+                className="transition-all duration-300"
+              />
 
-            {/* Kidneys (Renal) */}
-            {specMap["renal"] && (
-              <g 
-                className="cursor-pointer"
-                onMouseEnter={() => setHoveredSpec("renal")}
-                onMouseLeave={() => setHoveredSpec(null)}
-              >
-                <path d="M 108,142 L 155,142" stroke={getHotspotColor(specMap["renal"].risk_score, specMap["renal"].flag)} strokeWidth="0.8" strokeDasharray="3,3" strokeOpacity={hoveredSpec === "renal" ? "0.8" : "0.3"} />
-                {/* Left Kidney */}
-                <circle cx="92" cy="142" r="4" fill={getHotspotColor(specMap["renal"].risk_score, specMap["renal"].flag)} />
-                <circle cx="92" cy="142" r="9" stroke={getHotspotColor(specMap["renal"].risk_score, specMap["renal"].flag)} strokeWidth="1" strokeOpacity="0.4" className={specMap["renal"].flag ? "animate-pulse" : ""} />
-                {/* Right Kidney */}
-                <circle cx="108" cy="142" r="4" fill={getHotspotColor(specMap["renal"].risk_score, specMap["renal"].flag)} />
-                <circle cx="108" cy="142" r="9" stroke={getHotspotColor(specMap["renal"].risk_score, specMap["renal"].flag)} strokeWidth="1" strokeOpacity="0.4" className={specMap["renal"].flag ? "animate-pulse" : ""} />
-              </g>
-            )}
+              {/* Diagnostic Hotspots (adjust opacity depending on 3D rotation) */}
+              
+              {/* Eyes (Retinal) - Anterior element */}
+              {specMap["retinal"] && (
+                <g 
+                  className="cursor-pointer transition-opacity duration-300"
+                  style={{ opacity: anteriorOpacity }}
+                  onMouseEnter={() => setHoveredSpec("retinal")}
+                  onMouseLeave={() => setHoveredSpec(null)}
+                >
+                  <circle cx="95" cy="43" r="3.5" fill={getHotspotColor(specMap["retinal"].risk_score, specMap["retinal"].flag)} stroke="#ffffff" strokeWidth="0.5" />
+                  <circle cx="105" cy="43" r="3.5" fill={getHotspotColor(specMap["retinal"].risk_score, specMap["retinal"].flag)} stroke="#ffffff" strokeWidth="0.5" />
+                </g>
+              )}
 
-            {/* Nerves (Neuropathy) */}
-            {specMap["neuropathy"] && (
-              <g 
-                className="cursor-pointer"
-                onMouseEnter={() => setHoveredSpec("neuropathy")}
-                onMouseLeave={() => setHoveredSpec(null)}
-              >
-                <path d="M 68,252 L 35,252" stroke={getHotspotColor(specMap["neuropathy"].risk_score, specMap["neuropathy"].flag)} strokeWidth="0.8" strokeDasharray="3,3" strokeOpacity={hoveredSpec === "neuropathy" ? "0.8" : "0.3"} />
-                {/* Left Foot */}
-                <circle cx="68" cy="252" r="4" fill={getHotspotColor(specMap["neuropathy"].risk_score, specMap["neuropathy"].flag)} />
-                <circle cx="68" cy="252" r="9" stroke={getHotspotColor(specMap["neuropathy"].risk_score, specMap["neuropathy"].flag)} strokeWidth="1" strokeOpacity="0.4" className={specMap["neuropathy"].flag ? "animate-ping" : ""} />
-                {/* Right Foot */}
-                <circle cx="132" cy="252" r="4" fill={getHotspotColor(specMap["neuropathy"].risk_score, specMap["neuropathy"].flag)} />
-                <circle cx="132" cy="252" r="9" stroke={getHotspotColor(specMap["neuropathy"].risk_score, specMap["neuropathy"].flag)} strokeWidth="1" strokeOpacity="0.4" className={specMap["neuropathy"].flag ? "animate-ping" : ""} />
-              </g>
-            )}
-          </svg>
+              {/* Heart (Cardiovascular) - Anterior element */}
+              {specMap["cardiovascular"] && (
+                <g 
+                  className="cursor-pointer transition-opacity duration-300"
+                  style={{ opacity: anteriorOpacity }}
+                  onMouseEnter={() => setHoveredSpec("cardiovascular")}
+                  onMouseLeave={() => setHoveredSpec(null)}
+                >
+                  <circle cx="94" cy="106" r="5" fill={getHotspotColor(specMap["cardiovascular"].risk_score, specMap["cardiovascular"].flag)} stroke="#ffffff" strokeWidth="0.5" />
+                </g>
+              )}
+
+              {/* Kidneys (Renal) - Posterior element */}
+              {specMap["renal"] && (
+                <g 
+                  className="cursor-pointer transition-opacity duration-300"
+                  style={{ opacity: posteriorOpacity }}
+                  onMouseEnter={() => setHoveredSpec("renal")}
+                  onMouseLeave={() => setHoveredSpec(null)}
+                >
+                  <circle cx="92" cy="138" r="4.5" fill={getHotspotColor(specMap["renal"].risk_score, specMap["renal"].flag)} stroke="#ffffff" strokeWidth="0.5" />
+                  <circle cx="108" cy="138" r="4.5" fill={getHotspotColor(specMap["renal"].risk_score, specMap["renal"].flag)} stroke="#ffffff" strokeWidth="0.5" />
+                </g>
+              )}
+
+              {/* Nerves (Neuropathy) - Shared element */}
+              {specMap["neuropathy"] && (
+                <g 
+                  className="cursor-pointer"
+                  onMouseEnter={() => setHoveredSpec("neuropathy")}
+                  onMouseLeave={() => setHoveredSpec(null)}
+                >
+                  <circle cx="68" cy="252" r="4.5" fill={getHotspotColor(specMap["neuropathy"].risk_score, specMap["neuropathy"].flag)} stroke="#ffffff" strokeWidth="0.5" />
+                  <circle cx="132" cy="252" r="4.5" fill={getHotspotColor(specMap["neuropathy"].risk_score, specMap["neuropathy"].flag)} stroke="#ffffff" strokeWidth="0.5" />
+                </g>
+              )}
+            </svg>
+          </div>
+
+          {/* Minimalist 360-degree rotation control overlay */}
+          <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex items-center gap-3 bg-white/95 border border-slate-200 rounded-full px-4 py-1.5 shadow-md">
+            <button 
+              onClick={handleRotateLeft} 
+              className="p-1 hover:bg-slate-100 rounded-full text-slate-500 hover:text-slate-700 transition-colors"
+              title="Rotate Left"
+            >
+              <svg className="h-4.5 w-4.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+              </svg>
+            </button>
+            <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest min-w-[70px] text-center font-mono">
+              {rotation}°
+            </span>
+            <button 
+              onClick={handleRotateRight} 
+              className="p-1 hover:bg-slate-100 rounded-full text-slate-500 hover:text-slate-700 transition-colors"
+              title="Rotate Right"
+            >
+              <svg className="h-4.5 w-4.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+              </svg>
+            </button>
+          </div>
         </div>
 
         {/* Right side Detail List */}
@@ -194,10 +272,10 @@ export function OrganRiskMap({ specialists = [], synthesis, isLoading = false }:
                 Highest Risk Trajectory
               </p>
               <div className="mt-1 flex items-center justify-between">
-                <p className="font-semibold text-slate-900 text-base">
+                <p className="font-bold text-slate-900 text-base">
                   {specialistLabels[highestRisk.specialist] ?? highestRisk.specialist}
                 </p>
-                <span className="text-xs font-mono bg-slate-100 px-2.5 py-1 rounded text-slate-800 font-medium border border-slate-200">
+                <span className="text-xs font-mono bg-slate-100 px-2.5 py-1 rounded text-slate-800 font-semibold border border-slate-200">
                   Score: {(highestRisk.risk_score * 100).toFixed(0)}%
                 </span>
               </div>
@@ -211,10 +289,22 @@ export function OrganRiskMap({ specialists = [], synthesis, isLoading = false }:
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 flex-1">
             {specialists.map((finding) => {
               const isHovered = hoveredSpec === finding.specialist;
+              
+              // Automatically rotate the Y-axis when hovering individual cards
+              // Kidneys (Renal) are Posterior (180deg), Eyes/Heart are Anterior (0deg)
+              const handleMouseEnterCard = () => {
+                setHoveredSpec(finding.specialist);
+                if (finding.specialist === "renal" && (rotation % 360 !== 180)) {
+                  setRotation(180);
+                } else if (finding.specialist !== "renal" && finding.specialist !== "neuropathy" && (rotation % 360 !== 0)) {
+                  setRotation(0);
+                }
+              };
+
               return (
                 <div
                   key={finding.specialist}
-                  onMouseEnter={() => setHoveredSpec(finding.specialist)}
+                  onMouseEnter={handleMouseEnterCard}
                   onMouseLeave={() => setHoveredSpec(null)}
                   className={`rounded-xl border p-4 flex flex-col justify-between min-h-[110px] transition-all duration-200 cursor-pointer ${getRiskColorClass(
                     finding.risk_score,
@@ -232,9 +322,6 @@ export function OrganRiskMap({ specialists = [], synthesis, isLoading = false }:
                     </div>
                     {/* Ring indicator */}
                     <div className="relative flex items-center justify-center h-3.5 w-3.5 mt-0.5">
-                      <span className={`absolute h-full w-full rounded-full animate-ping opacity-75 ${
-                        finding.flag ? "bg-red-400" : finding.risk_score >= 0.4 ? "bg-amber-400" : "bg-emerald-400"
-                      }`} style={{ animationDuration: '2s' }} />
                       <span className={`h-2.5 w-2.5 rounded-full ${
                         finding.flag ? "bg-red-500" : finding.risk_score >= 0.4 ? "bg-amber-500" : "bg-emerald-500"
                       }`} />
