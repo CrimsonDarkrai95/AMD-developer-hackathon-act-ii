@@ -94,25 +94,27 @@ export function ReportExport({ patientId, demographics, specialists = [], synthe
   const isButtonDisabled = !patientId || specialists.length === 0 || isExporting;
 
   return (
-    <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between border border-white/10 bg-black/10 rounded-lg p-4 font-sans">
-      <div>
-        <h2 className="text-sm font-medium text-foreground/80">
-          Clinical Document Export
-        </h2>
-        <p className="text-xs text-foreground/40 mt-0.5">
-          Generate structured clinical documentation for medical records.
-        </p>
-        {statusMessage && (
-          <p className="mt-1 text-xs text-emerald-400 font-mono">{statusMessage}</p>
-        )}
+    <div className="flex h-full flex-col gap-4 rounded-3xl border border-slate-200 bg-white p-4 sm:p-6 transition-all duration-200 hover:border-slate-300 hover:shadow-md">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between border border-slate-150 bg-slate-50 rounded-2xl p-4">
+        <div className="flex-1">
+          <h2 className="text-sm font-semibold text-slate-800">
+            Clinical Document Export
+          </h2>
+          <p className="text-xs text-slate-500 mt-0.5">
+            Generate structured clinical documentation for medical records.
+          </p>
+          {statusMessage && (
+            <p className="mt-1.5 text-xs text-emerald-600 font-mono font-medium">{statusMessage}</p>
+          )}
+        </div>
+        <button
+          onClick={handleExport}
+          disabled={isButtonDisabled}
+          className="rounded-xl px-5 py-2.5 text-sm font-medium text-white transition-all bg-emerald-600 hover:bg-emerald-500 disabled:opacity-30 disabled:hover:bg-emerald-600 whitespace-nowrap shadow-sm w-full sm:w-auto text-center"
+        >
+          {isExporting ? "Compiling..." : "Export Assessment"}
+        </button>
       </div>
-      <button
-        onClick={handleExport}
-        disabled={isButtonDisabled}
-        className="rounded-lg px-4 py-2 text-sm font-medium text-white transition-all bg-emerald-600 hover:bg-emerald-500 disabled:opacity-30 disabled:hover:bg-emerald-600 whitespace-nowrap shadow-md self-start sm:self-center"
-      >
-        {isExporting ? "Compiling..." : "Export Assessment"}
-      </button>
     </div>
   );
 }

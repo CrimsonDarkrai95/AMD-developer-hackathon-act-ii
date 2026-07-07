@@ -13,6 +13,16 @@ export interface Demographics {
   a1c_percent: number;
 }
 
+export interface Labs {
+  egfr: number;
+  uacr_mg_g: number;
+  creatinine_mg_dl: number;
+  ldl_mg_dl: number;
+  hdl_mg_dl: number;
+  triglycerides_mg_dl: number;
+  systolic_bp: number;
+}
+
 export interface SpecialistResult {
   specialist: "retinal" | "renal" | "neuropathy" | "cardiovascular" | string;
   risk_score: number; // float 0-1 from the python sandbox execution
@@ -28,6 +38,7 @@ export interface SynthesisReport {
 export interface PatientAnalysisResponse {
   patient_id: string;
   demographics: Demographics;
+  labs: Labs;
   specialists: SpecialistResult[];
   synthesis: SynthesisReport;
 }

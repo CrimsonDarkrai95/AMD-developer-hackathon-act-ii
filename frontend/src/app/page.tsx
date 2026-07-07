@@ -1,51 +1,34 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { PatientOverviewHeader } from "@/features/dashboard/components/PatientOverviewHeader";
 import { OrganRiskMap } from "@/features/dashboard/components/OrganRiskMap";
+import { RiskForecastPanel } from "@/features/dashboard/components/RiskForecastPanel";
+import { LabsPanel } from "@/features/dashboard/components/LabsPanel";
+import { SynthesisCallout } from "@/features/dashboard/components/SynthesisCallout";
 import { LiveAgentTerminal } from "@/features/dashboard/components/LiveAgentTerminal";
 import { ReportExport } from "@/features/dashboard/components/ReportExport";
-
-interface PatientDropdownItem {
-  patient_id: string;
-  age: number;
-  sex: string;
-  a1c_percent: number;
-}
-
-interface Demographics {
-  age: number;
-  sex: string;
-  a1c_percent: number;
-}
-
-interface SpecialistResult {
-  specialist: string;
-  risk_score: number;
-  flag: boolean;
-  reasoning: string;
-}
-
-interface SynthesisReport {
-  top_concern: string;
-  recommendation: string;
-}
+import type {
+  PatientDropdownItem,
+  Demographics,
+  Labs,
+  SpecialistResult,
+  SynthesisReport,
+} from "@/types";
 
 export default function DashboardPage() {
-  // State for populating the dropdown selector
   const [patients, setPatients] = useState<PatientDropdownItem[]>([]);
   const [selectedPatientId, setSelectedPatientId] = useState<string>("");
 
-  // States for the active diagnostic analysis pipeline
   const [demographics, setDemographics] = useState<Demographics | null>(null);
+  const [labs, setLabs] = useState<Labs | null>(null);
   const [specialists, setSpecialists] = useState<SpecialistResult[]>([]);
   const [synthesis, setSynthesis] = useState<SynthesisReport | null>(null);
-  
-  // UX State Indicators
+
   const [isPatientsLoading, setIsPatientsLoading] = useState<boolean>(true);
   const [isPipelineRunning, setIsPipelineRunning] = useState<boolean>(false);
   const [errorMessage, setErrorMessage] = useState<string>("");
 
-  // 1. Fetch available sample records on mount to populate the selector dropdown
   useEffect(() => {
     async function loadPatients() {
       try {
@@ -67,7 +50,6 @@ export default function DashboardPage() {
     loadPatients();
   }, []);
 
-  // 2. Trigger the multi-agent code execution sandbox pipeline
   async function triggerPipelineAnalysis(patientId: string) {
     if (!patientId) return;
     try {
@@ -83,8 +65,8 @@ export default function DashboardPage() {
       if (!res.ok) throw new Error(`Pipeline breakdown: API returned code ${res.status}`);
       const report = await res.json();
 
-      // Distribute the incoming python execution payload directly to layout components
       setDemographics(report.demographics);
+      setLabs(report.labs);
       setSpecialists(report.specialists);
       setSynthesis(report.synthesis);
     } catch (err: any) {
@@ -95,36 +77,34 @@ export default function DashboardPage() {
   }
 
   return (
-    <main className="mx-auto flex min-h-screen max-w-7xl flex-col gap-6 p-6 lg:p-10 font-sans antialiased text-foreground selection:bg-emerald-500/30">
-      
-      {/* Structural Header Grid */}
-      <header className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between border-b border-white/5 pb-6">
+    <main className="mx-auto flex min-h-screen max-w-[1600px] flex-col gap-6 bg-slate-50 p-4 font-sans antialiased sm:p-6 lg:p-12">
+
+      <header className="flex flex-col gap-4 border-b border-slate-200 pb-6 md:flex-row md:items-center md:justify-between">
         <div className="flex flex-col gap-1">
-          <h1 className="text-2xl font-semibold tracking-tight">
+          <h1 className="text-3xl font-bold tracking-tight text-slate-900">
             Clinician Dashboard
           </h1>
-          <p className="text-sm text-foreground/60">
+          <p className="text-sm sm:text-base text-slate-500">
             Diabetic complication risk triage — multi-agent panel synthesis
           </p>
         </div>
 
-        {/* Diagnostic Selector Panel */}
-        <div className="flex items-center gap-3 bg-black/20 border border-white/10 px-4 py-2 rounded-lg backdrop-blur-sm self-start sm:self-center">
-          <label htmlFor="patient-select" className="text-xs font-medium text-foreground/40 uppercase tracking-wider whitespace-nowrap">
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 rounded-2xl border border-slate-200 bg-white p-3 sm:px-4 sm:py-2.5 transition-all duration-200 hover:border-slate-300 hover:shadow-sm">
+          <label htmlFor="patient-select" className="whitespace-nowrap text-xs font-semibold uppercase tracking-wider text-slate-400">
             Select Record:
           </label>
           {isPatientsLoading ? (
-            <span className="text-xs text-foreground/40 animate-pulse">Index mapping...</span>
+            <span className="animate-pulse text-sm text-slate-400 font-medium">Index mapping...</span>
           ) : (
             <select
               id="patient-select"
               value={selectedPatientId}
               onChange={(e) => setSelectedPatientId(e.target.value)}
               disabled={isPipelineRunning}
-              className="bg-transparent text-sm font-mono font-medium text-foreground focus:outline-none cursor-pointer disabled:opacity-40"
+              className="cursor-pointer bg-transparent text-sm font-mono font-semibold text-slate-900 focus:outline-none disabled:opacity-40 w-full sm:w-auto"
             >
               {patients.map((p) => (
-                <option key={p.patient_id} value={p.patient_id} className="bg-zinc-900 text-foreground">
+                <option key={p.patient_id} value={p.patient_id}>
                   {p.patient_id} (Age: {p.age}, A1c: {p.a1c_percent}%)
                 </option>
               ))}
@@ -133,46 +113,55 @@ export default function DashboardPage() {
           <button
             onClick={() => triggerPipelineAnalysis(selectedPatientId)}
             disabled={isPipelineRunning || !selectedPatientId}
-            className="ml-2 px-3 py-1 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-30 text-white rounded font-medium text-xs transition-all shadow"
+            className="rounded-xl bg-emerald-600 px-4 py-2 text-sm font-semibold text-white transition-all hover:bg-emerald-500 disabled:opacity-30 w-full sm:w-auto shadow-sm"
           >
             {isPipelineRunning ? "Running Swarm..." : "Analyze Dataset"}
           </button>
         </div>
       </header>
 
-      {/* Global Framework Network System Fault Flags */}
       {errorMessage && (
-        <div className="bg-red-500/10 border border-red-500/20 text-red-400 p-3 rounded-lg text-xs font-mono">
+        <div className="rounded-2xl border border-rose-200 bg-rose-50 p-4 font-mono text-sm text-rose-600 shadow-sm">
           ⚠️ [PIPELINE EXCEPTION]: {errorMessage}
         </div>
       )}
 
-      {/* Main Layout Presentation Blocks */}
-      <section className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-        <div className="glass-card col-span-1 border border-white/10 bg-white/[0.02] rounded-xl p-5 lg:col-span-2 shadow-xl backdrop-blur-md">
-          <OrganRiskMap 
-            specialists={specialists} 
-            synthesis={synthesis} 
-            isLoading={isPipelineRunning} 
-          />
-        </div>
-        <div className="glass-card col-span-1 border border-white/10 bg-white/[0.02] rounded-xl p-5 shadow-xl backdrop-blur-md">
-          <LiveAgentTerminal 
-            specialists={specialists} 
-            synthesis={synthesis} 
-            isLoading={isPipelineRunning} 
-          />
-        </div>
-      </section>
+      <PatientOverviewHeader
+        patientId={selectedPatientId || null}
+        demographics={demographics}
+        labs={labs}
+      />
 
-      {/* Operational Infrastructure Output Exporters */}
-      <section className="glass-card border border-white/10 bg-white/[0.02] rounded-xl p-5 shadow-xl backdrop-blur-md">
-        <ReportExport 
-          patientId={selectedPatientId || null}
-          demographics={demographics}
-          specialists={specialists}
-          synthesis={synthesis}
-        />
+      <section className="grid grid-cols-1 gap-6 lg:grid-cols-12">
+        <div className="flex flex-col gap-6 lg:col-span-7 xl:col-span-8">
+          <div className="rounded-3xl border border-slate-200 bg-white p-4 sm:p-6 transition-all duration-200 hover:border-slate-300 hover:shadow-md">
+            <OrganRiskMap
+              specialists={specialists}
+              synthesis={synthesis}
+              isLoading={isPipelineRunning}
+            />
+          </div>
+          <RiskForecastPanel specialists={specialists} isLoading={isPipelineRunning} />
+          <SynthesisCallout specialists={specialists} synthesis={synthesis} isLoading={isPipelineRunning} />
+        </div>
+        
+        <div className="flex flex-col gap-6 lg:col-span-5 xl:col-span-4">
+          <LiveAgentTerminal
+            specialists={specialists}
+            synthesis={synthesis}
+            isLoading={isPipelineRunning}
+          />
+          <LabsPanel labs={labs} isLoading={isPipelineRunning} />
+        </div>
+
+        <div className="lg:col-span-12">
+          <ReportExport
+            patientId={selectedPatientId || null}
+            demographics={demographics}
+            specialists={specialists}
+            synthesis={synthesis}
+          />
+        </div>
       </section>
     </main>
   );

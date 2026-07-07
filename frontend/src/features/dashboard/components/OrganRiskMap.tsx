@@ -30,10 +30,10 @@ export function OrganRiskMap({ specialists = [], synthesis, isLoading = false }:
 
   if (isLoading) {
     return (
-      <div className="flex min-h-[400px] h-full flex-col items-center justify-center gap-3 rounded-xl border border-white/10 bg-black/20 p-8 text-sm text-foreground/40 animate-pulse font-sans">
+      <div className="flex min-h-[400px] h-full flex-col items-center justify-center gap-3 rounded-xl border border-slate-200 bg-slate-50/50 p-8 text-sm text-slate-400 animate-pulse font-sans">
         <div className="relative flex items-center justify-center">
           <div className="absolute h-12 w-12 rounded-full border-2 border-emerald-500/20 border-t-emerald-500 animate-spin" />
-          <span className="text-xs font-mono text-emerald-400 mt-20 uppercase tracking-widest">Running Swarm Sandboxes...</span>
+          <span className="text-xs font-mono text-emerald-600 mt-20 uppercase tracking-widest">Running Swarm Sandboxes...</span>
         </div>
       </div>
     );
@@ -41,12 +41,12 @@ export function OrganRiskMap({ specialists = [], synthesis, isLoading = false }:
 
   if (!specialists.length) {
     return (
-      <div className="flex min-h-[400px] h-full flex-col items-center justify-center gap-2 rounded-xl border border-white/10 bg-black/20 p-8 text-sm text-foreground/40 font-sans text-center">
-        <svg className="w-12 h-12 text-foreground/20 mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+      <div className="flex min-h-[400px] h-full flex-col items-center justify-center gap-2 rounded-xl border border-slate-200 bg-slate-50/50 p-8 text-sm text-slate-400 font-sans text-center">
+        <svg className="w-12 h-12 text-slate-300 mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" />
         </svg>
-        <span className="font-medium">No active patient data loaded.</span>
-        <span className="text-xs text-foreground/30">Select a patient record at the top to run the diagnostic swarm.</span>
+        <span className="font-medium text-slate-700">No active patient data loaded.</span>
+        <span className="text-xs text-slate-400">Select a patient record at the top to run the diagnostic swarm.</span>
       </div>
     );
   }
@@ -56,11 +56,11 @@ export function OrganRiskMap({ specialists = [], synthesis, isLoading = false }:
     return item.risk_score > current.risk_score ? item : current;
   }, specialists[0] ?? { specialist: "System", risk_score: 0, flag: false, reasoning: "" });
 
-  // Compute color based on score and flag status
+  // Compute color based on score and flag status for light theme
   const getRiskColorClass = (score: number, flag: boolean) => {
-    if (flag || score >= 0.7) return "text-red-400 border-red-500/30 bg-red-500/5 hover:border-red-500/50";
-    if (score >= 0.4) return "text-amber-400 border-amber-500/30 bg-amber-500/5 hover:border-amber-500/50";
-    return "text-emerald-400 border-emerald-500/30 bg-emerald-500/5 hover:border-emerald-500/50";
+    if (flag || score >= 0.7) return "text-red-700 border-red-200 bg-red-50/60 hover:bg-red-50 hover:border-red-300";
+    if (score >= 0.4) return "text-amber-700 border-amber-200 bg-amber-50/60 hover:bg-amber-50 hover:border-amber-300";
+    return "text-emerald-700 border-emerald-200 bg-emerald-50/60 hover:bg-emerald-50 hover:border-emerald-300";
   };
 
   const getHotspotColor = (score: number, flag: boolean) => {
@@ -76,19 +76,19 @@ export function OrganRiskMap({ specialists = [], synthesis, isLoading = false }:
   }, {} as Record<string, SpecialistResult>);
 
   return (
-    <div className="flex h-full flex-col gap-4 font-sans">
-      <div className="flex items-center justify-between border-b border-white/5 pb-2">
+    <div className="flex h-full flex-col gap-4 font-sans text-slate-800">
+      <div className="flex items-center justify-between border-b border-slate-100 pb-2">
         <div className="flex flex-col">
-          <h2 className="text-sm font-semibold tracking-tight text-foreground/80">
+          <h2 className="text-sm font-semibold tracking-tight text-slate-700">
             Anatomical Risk Map
           </h2>
-          <p className="text-[10px] text-foreground/40 uppercase tracking-wider">Localized Bio-markers</p>
+          <p className="text-[10px] text-slate-400 uppercase tracking-wider">Localized Bio-markers</p>
         </div>
         <div className="flex items-center gap-2">
-          <span className="text-[10px] uppercase tracking-wider text-foreground/40 font-mono">
+          <span className="text-[10px] uppercase tracking-wider text-slate-400 font-mono">
             Pipeline Active
           </span>
-          <span className="h-2 w-2 rounded-full bg-emerald-500 shadow-[0_0_6px_rgba(16,185,129,0.5)]" />
+          <span className="h-2 w-2 rounded-full bg-emerald-500 shadow-[0_0_6px_rgba(16,185,129,0.3)]" />
         </div>
       </div>
 
@@ -96,13 +96,13 @@ export function OrganRiskMap({ specialists = [], synthesis, isLoading = false }:
       <div className="flex flex-col md:flex-row gap-5 flex-1 items-stretch">
         
         {/* SVG Silhouette Panel (Left side) */}
-        <div className="flex-1 flex items-center justify-center bg-black/40 border border-white/10 rounded-xl p-4 min-h-[300px] relative overflow-hidden select-none">
+        <div className="flex-1 flex items-center justify-center bg-slate-50/80 border border-slate-200/60 rounded-xl p-4 min-h-[300px] relative overflow-hidden select-none">
           {/* Subtle Grid Background */}
-          <div className="absolute inset-0 opacity-[0.03] bg-[linear-gradient(to_right,#808080_1px,transparent_1px),linear-gradient(to_bottom,#808080_1px,transparent_1px)] bg-[size:14px_24px]" />
+          <div className="absolute inset-0 opacity-[0.03] bg-[linear-gradient(to_right,#0f172a_1px,transparent_1px),linear-gradient(to_bottom,#0f172a_1px,transparent_1px)] bg-[size:14px_24px]" />
           
           <svg className="w-full h-full max-w-[220px] max-h-[300px]" viewBox="0 0 200 280" fill="none">
             {/* Minimalist Human Body Outline */}
-            <g stroke="#ffffff" strokeWidth="1" strokeOpacity="0.12" fill="none">
+            <g stroke="#0f172a" strokeWidth="1" strokeOpacity="0.12" fill="none">
               {/* Head */}
               <ellipse cx="100" cy="40" rx="16" ry="20" />
               {/* Neck */}
@@ -186,23 +186,23 @@ export function OrganRiskMap({ specialists = [], synthesis, isLoading = false }:
         </div>
 
         {/* Right side Detail List */}
-        <div className="flex-1.5 flex flex-col gap-3">
+        <div className="flex-[1.5] flex flex-col gap-3">
           {/* Executive Summary Compiling */}
           {synthesis && (
-            <div className="rounded-xl border border-white/10 bg-white/5 p-4 backdrop-blur-sm shadow-md">
-              <p className="text-[10px] uppercase tracking-[0.24em] font-semibold text-foreground/40">
+            <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 shadow-sm">
+              <p className="text-[10px] uppercase tracking-[0.24em] font-semibold text-slate-400">
                 Highest Risk Trajectory
               </p>
               <div className="mt-1 flex items-center justify-between">
-                <p className="font-semibold text-foreground text-lg">
+                <p className="font-semibold text-slate-900 text-base">
                   {specialistLabels[highestRisk.specialist] ?? highestRisk.specialist}
                 </p>
-                <span className="text-xs font-mono bg-white/10 px-2.5 py-1 rounded text-white font-medium">
+                <span className="text-xs font-mono bg-slate-100 px-2.5 py-1 rounded text-slate-800 font-medium border border-slate-200">
                   Score: {(highestRisk.risk_score * 100).toFixed(0)}%
                 </span>
               </div>
-              <p className="mt-2.5 text-xs text-foreground/75 leading-relaxed border-t border-white/5 pt-2">
-                <span className="font-bold text-foreground/90">Clinical Rec:</span> {synthesis.recommendation}
+              <p className="mt-2.5 text-xs text-slate-600 leading-relaxed border-t border-slate-100 pt-2">
+                <span className="font-bold text-slate-800">Clinical Rec:</span> {synthesis.recommendation}
               </p>
             </div>
           )}
@@ -219,20 +219,20 @@ export function OrganRiskMap({ specialists = [], synthesis, isLoading = false }:
                   className={`rounded-xl border p-4 flex flex-col justify-between min-h-[110px] transition-all duration-200 cursor-pointer ${getRiskColorClass(
                     finding.risk_score,
                     finding.flag
-                  )} ${isHovered ? "ring-1 ring-white/20 scale-[1.02]" : "shadow-sm"}`}
+                  )} ${isHovered ? "ring-1 ring-slate-300 scale-[1.02]" : "shadow-sm"}`}
                 >
                   <div className="flex items-start justify-between gap-2">
                     <div className="flex flex-col">
-                      <span className="text-sm font-semibold text-white">
+                      <span className="text-sm font-semibold text-slate-900">
                         {specialistLabels[finding.specialist] ?? finding.specialist}
                       </span>
-                      <span className="text-[9px] uppercase tracking-wider text-foreground/40 mt-0.5">
+                      <span className="text-[9px] uppercase tracking-wider text-slate-400 mt-0.5">
                         {finding.flag ? "Anomaly Flagged" : "Within Boundary"}
                       </span>
                     </div>
                     {/* Ring indicator */}
                     <div className="relative flex items-center justify-center h-3.5 w-3.5 mt-0.5">
-                      <span className={`absolute h-full.5 w-full.5 rounded-full animate-ping opacity-75 ${
+                      <span className={`absolute h-full w-full rounded-full animate-ping opacity-75 ${
                         finding.flag ? "bg-red-400" : finding.risk_score >= 0.4 ? "bg-amber-400" : "bg-emerald-400"
                       }`} style={{ animationDuration: '2s' }} />
                       <span className={`h-2.5 w-2.5 rounded-full ${
@@ -242,10 +242,10 @@ export function OrganRiskMap({ specialists = [], synthesis, isLoading = false }:
                   </div>
 
                   <div className="mt-4 flex items-baseline justify-between">
-                    <span className="text-[10px] font-mono opacity-50">
+                    <span className="text-[10px] font-mono text-slate-400">
                       RISK PROBABILITY
                     </span>
-                    <span className="text-xl font-bold font-mono tracking-tight text-white leading-none">
+                    <span className="text-lg font-bold font-mono tracking-tight text-slate-950 leading-none">
                       {(finding.risk_score * 100).toFixed(0)}%
                     </span>
                   </div>

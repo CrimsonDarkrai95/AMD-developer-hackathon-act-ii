@@ -40,6 +40,7 @@ except Exception as e:
 class PatientAnalysisResponse(BaseModel):
     patient_id: str
     demographics: dict
+    labs: dict
     specialists: list
     synthesis: dict
 
@@ -76,6 +77,15 @@ def analyze_patient(patient_id: str):
                 "age": int(patient_row["age"]),
                 "sex": str(patient_row["sex"]),
                 "a1c_percent": float(patient_row["a1c_percent"]),
+            },
+            "labs": {
+                "egfr": float(patient_row["egfr"]),
+                "uacr_mg_g": float(patient_row["uacr_mg_g"]),
+                "creatinine_mg_dl": float(patient_row["creatinine_mg_dl"]),
+                "ldl_mg_dl": float(patient_row["ldl_mg_dl"]),
+                "hdl_mg_dl": float(patient_row["hdl_mg_dl"]),
+                "triglycerides_mg_dl": float(patient_row["triglycerides_mg_dl"]),
+                "systolic_bp": float(patient_row["systolic_bp"]),
             },
             "specialists": specialist_results,
             "synthesis": synthesis_report,
