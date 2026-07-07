@@ -27,7 +27,8 @@ export default function DashboardPage() {
 
   const [isPatientsLoading, setIsPatientsLoading] = useState<boolean>(true);
   const [isPipelineRunning, setIsPipelineRunning] = useState<boolean>(false);
-  const [errorMessage, setErrorMessage] = useState<string>("");
+  const [errorMessage, setErrorMessage] = useState<string>(" ");
+  const [llmStatus, setLlmStatus] = useState<string>("checking...");
 
   useEffect(() => {
     async function loadPatients() {
@@ -47,7 +48,23 @@ export default function DashboardPage() {
         setIsPatientsLoading(false);
       }
     }
+
+    async function loadStatus() {
+      try {
+        const res = await fetch("/api/status");
+        if (res.ok) {
+          const data = await res.json();
+          setLlmStatus(data.llm_status);
+        } else {
+          setLlmStatus("offline");
+        }
+      } catch {
+        setLlmStatus("offline");
+      }
+    }
+
     loadPatients();
+    loadStatus();
   }, []);
 
   async function triggerPipelineAnalysis(patientId: string) {
@@ -69,6 +86,17 @@ export default function DashboardPage() {
       setLabs(report.labs);
       setSpecialists(report.specialists);
       setSynthesis(report.synthesis);
+
+      // Refresh the status in case of config updates
+      try {
+        const statusRes = await fetch("/api/status");
+        if (statusRes.ok) {
+          const statusData = await statusRes.json();
+          setLlmStatus(statusData.llm_status);
+        }
+      } catch {
+        // ignore status refresh error
+      }
     } catch (err: any) {
       setErrorMessage(err.message || "Execution loop experienced an unhandled fault.");
     } finally {
@@ -120,7 +148,7 @@ export default function DashboardPage() {
         </div>
       </header>
 
-      {errorMessage && (
+      {errorMessage && errorMessage.trim() && (
         <div className="rounded-2xl border border-rose-200 bg-rose-50 p-4 font-mono text-sm text-rose-600 shadow-sm">
           ⚠️ [PIPELINE EXCEPTION]: {errorMessage}
         </div>
@@ -150,6 +178,7 @@ export default function DashboardPage() {
             specialists={specialists}
             synthesis={synthesis}
             isLoading={isPipelineRunning}
+            llmStatus={llmStatus}
           />
           <LabsPanel labs={labs} isLoading={isPipelineRunning} />
         </div>

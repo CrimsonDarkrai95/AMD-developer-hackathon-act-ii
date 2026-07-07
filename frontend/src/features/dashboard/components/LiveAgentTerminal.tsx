@@ -16,6 +16,7 @@ interface LiveAgentTerminalProps {
     recommendation: string;
   } | null;
   isLoading?: boolean;
+  llmStatus?: string;
 }
 
 const specialistLabels: Record<string, string> = {
@@ -25,13 +26,23 @@ const specialistLabels: Record<string, string> = {
   cardiovascular: "CARDIOVASCULAR_SPECIALIST",
 };
 
-export function LiveAgentTerminal({ specialists = [], synthesis, isLoading = false }: LiveAgentTerminalProps) {
+export function LiveAgentTerminal({
+  specialists = [],
+  synthesis,
+  isLoading = false,
+  llmStatus = "checking...",
+}: LiveAgentTerminalProps) {
   const [terminalLogs, setTerminalLogs] = useState<string[]>([]);
   const [activeSpecialistIdx, setActiveSpecialistIdx] = useState<number>(-1);
-  const terminalEndRef = useRef<HTMLDivElement>(null);
+  const terminalContainerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    terminalEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    if (terminalContainerRef.current) {
+      terminalContainerRef.current.scrollTo({
+        top: terminalContainerRef.current.scrollHeight,
+        behavior: "smooth"
+      });
+    }
   }, [terminalLogs, activeSpecialistIdx, isLoading, specialists, synthesis]);
 
   useEffect(() => {
@@ -93,20 +104,36 @@ export function LiveAgentTerminal({ specialists = [], synthesis, isLoading = fal
   }, [activeSpecialistIdx, specialists, synthesis]);
 
   return (
-    <div className="flex h-full flex-col gap-4 rounded-3xl border border-slate-200 bg-white p-4 sm:p-6 transition-all duration-200 hover:border-slate-300 hover:shadow-md">
+    <div className="flex h-auto flex-col gap-4 rounded-3xl border border-slate-200 bg-white p-4 sm:p-6 transition-all duration-200 hover:border-slate-300 hover:shadow-md">
       <div className="flex items-center justify-between">
         <h2 className="text-base font-medium tracking-tight text-slate-900">
-          Live Agent Reasoning Terminal
+          Live Terminal
         </h2>
-        <div className="flex items-center gap-1.5">
-          <span className="h-2 w-2 animate-pulse rounded-full bg-emerald-500" />
-          <span className="text-xs uppercase tracking-wide text-emerald-600 font-medium">
-            Connected to Live Backend Pipeline
-          </span>
-        </div>
+        {llmStatus === "offline" ? (
+          <div className="flex items-center gap-1.5">
+            <span className="h-2 w-2 rounded-full bg-rose-500" />
+            <span className="text-xs uppercase tracking-wide text-rose-600 font-medium">
+              Live LLM Agents: Offline
+            </span>
+          </div>
+        ) : llmStatus === "checking..." ? (
+          <div className="flex items-center gap-1.5">
+            <span className="h-2 w-2 animate-pulse rounded-full bg-slate-400" />
+            <span className="text-xs uppercase tracking-wide text-slate-500 font-medium">
+              Live LLM Agents: Checking...
+            </span>
+          </div>
+        ) : (
+          <div className="flex items-center gap-1.5">
+            <span className="h-2 w-2 animate-pulse rounded-full bg-emerald-500" />
+            <span className="text-xs uppercase tracking-wide text-emerald-600 font-medium">
+              Live LLM Agents: {llmStatus.charAt(0).toUpperCase() + llmStatus.slice(1)}
+            </span>
+          </div>
+        )}
       </div>
 
-      <div className="relative flex min-h-[380px] sm:min-h-[420px] max-h-[500px] flex-1 flex-col overflow-hidden rounded-xl border border-slate-900 bg-slate-950 shadow-inner font-mono">
+      <div className="relative flex h-[420px] flex-col overflow-hidden rounded-xl border border-slate-900 bg-slate-950 shadow-inner font-mono">
         <div className="flex items-center justify-between border-b border-white/5 bg-zinc-900/80 px-4 py-2">
           <div className="flex items-center gap-1.5">
             <span className="h-2.5 w-2.5 rounded-full bg-red-500/80" />
@@ -119,7 +146,7 @@ export function LiveAgentTerminal({ specialists = [], synthesis, isLoading = fal
 
         <div className="pointer-events-none absolute inset-0 z-10 bg-[linear-gradient(rgba(18,16,16,0)_50%,rgba(0,0,0,0.25)_50%),linear-gradient(90deg,rgba(255,0,0,0.06),rgba(0,255,0,0.02),rgba(0,0,255,0.06))] bg-[length:100%_4px,3px_100%] opacity-40" />
 
-        <div className="scrollbar-thin scrollbar-thumb-white/10 flex-1 space-y-4 overflow-y-auto p-4 text-sm">
+        <div ref={terminalContainerRef} className="scrollbar-thin scrollbar-thumb-white/10 flex-1 space-y-4 overflow-y-auto p-4 text-sm">
 
           {!isLoading && specialists.length === 0 && (
             <div className="flex h-full flex-col items-center justify-center py-16 text-center font-sans italic text-white/30">
@@ -136,8 +163,6 @@ export function LiveAgentTerminal({ specialists = [], synthesis, isLoading = fal
               <span className="ml-1 inline-block h-4 w-2 animate-ping bg-emerald-400" />
             )}
           </div>
-
-          <div ref={terminalEndRef} />
         </div>
       </div>
     </div>

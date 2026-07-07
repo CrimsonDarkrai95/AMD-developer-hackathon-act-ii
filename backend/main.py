@@ -105,6 +105,16 @@ def analyze_patient(patient_id: str):
         raise HTTPException(status_code=500, detail=f"Pipeline execution breakdown: {str(e)}")
 
 
+@app.get("/api/status")
+def get_status():
+    """Returns the current LLM status of the backend (fireworks, featherless, or offline)."""
+    from agent_core import get_llm_status
+    provider = get_llm_status()
+    return {
+        "llm_status": "offline" if provider is None else provider
+    }
+
+
 if __name__ == "__main__":
     import uvicorn
     # Fires up the server on port 8000
