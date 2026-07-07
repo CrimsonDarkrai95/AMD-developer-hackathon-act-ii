@@ -14,9 +14,12 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
 # Import the patient execution pipeline straight from your engineer's script
-from run_pipeline import run_patient
+from run_pipeline import run_patient, build_graph
 
 BACKEND_DIR = Path(__file__).resolve().parent
+
+# Compile the LangGraph agent orchestration flow
+graph_flow = build_graph()
 
 app = FastAPI(title="Diabetic Complication Swarm Engine API")
 
@@ -69,7 +72,15 @@ def analyze_patient(patient_id: str):
 
     try:
         # Run the end-to-end evaluation pipeline (Executes agents + synthesis code blocks)
-        specialist_results, synthesis_report = run_patient(patient_row, verbose=False)
+        final_state = run_patient(graph_flow, patient_row, verbose=False)
+        
+        specialist_results = [
+            final_state["renal_result"],
+            final_state["neuropathy_result"],
+            final_state["retinal_result"],
+            final_state["cardiovascular_result"],
+        ]
+        synthesis_report = final_state["synthesis"]
 
         return {
             "patient_id": str(patient_row["patient_id"]),

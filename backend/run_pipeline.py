@@ -116,7 +116,7 @@ def run_patient(app, patient_row: dict, verbose=True):
     if verbose:
         for name in ["renal", "neuropathy", "retinal", "cardiovascular"]:
             result = final_state[f"{name}_result"]
-            flag_marker = "⚠️  FLAGGED" if result["flag"] else "   clear"
+            flag_marker = "[!] FLAGGED" if result["flag"] else "    clear"
             print(f"[{name.upper():15s}] risk={result['risk_score']:.2f}  {flag_marker}")
             print(f"                  -> {result['reasoning']}")
         print(f"\n>>> SYNTHESIS: {final_state['synthesis']}\n")
