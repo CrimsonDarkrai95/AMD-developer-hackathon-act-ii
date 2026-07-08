@@ -14,6 +14,7 @@ interface CustomPatientModalProps {
 
 // Sane NHANES baseline defaults matching the guidelines
 const defaultValues: CustomPatientInput = {
+  name: "",
   age: 55,
   sex: "F",
   years_with_diabetes: 10,
@@ -27,7 +28,7 @@ const defaultValues: CustomPatientInput = {
   systolic_bp: 130,
 };
 
-const bounds: Record<keyof CustomPatientInput, { min: number; max: number; label: string }> = {
+const bounds: Record<Exclude<keyof CustomPatientInput, "sex" | "name">, { min: number; max: number; label: string }> = {
   age: { min: 1, max: 120, label: "Age" },
   years_with_diabetes: { min: 0, max: 90, label: "Years with Diabetes" },
   a1c_percent: { min: 3.0, max: 20.0, label: "HbA1c (%)" },
@@ -38,7 +39,6 @@ const bounds: Record<keyof CustomPatientInput, { min: number; max: number; label
   hdl_mg_dl: { min: 0.0, max: 200.0, label: "HDL (mg/dL)" },
   triglycerides_mg_dl: { min: 0.0, max: 10000.0, label: "Triglycerides (mg/dL)" },
   systolic_bp: { min: 50.0, max: 260.0, label: "Systolic BP (mmHg)" },
-  sex: { min: 0, max: 0, label: "Sex" } // Not used for numeric bounds
 };
 
 export function CustomPatientModal({
@@ -73,6 +73,7 @@ export function CustomPatientModal({
       setForm(defaultValues);
     } else {
       setForm({
+        name: "",
         age: 65,
         sex: "M",
         years_with_diabetes: 20,
@@ -93,8 +94,7 @@ export function CustomPatientModal({
     let isValid = true;
 
     // Validate ranges
-    (Object.keys(bounds) as Array<keyof CustomPatientInput>).forEach((key) => {
-      if (key === "sex") return;
+    (Object.keys(bounds) as Array<keyof typeof bounds>).forEach((key) => {
       const val = form[key];
       const bound = bounds[key];
       if (typeof val !== "number" || isNaN(val)) {
@@ -165,6 +165,20 @@ export function CustomPatientModal({
             <div className="space-y-4">
               <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400">Demographics & Profile</h3>
               
+              <div>
+                <label className="block text-xs font-semibold text-slate-600 mb-1">Full Name (Optional)</label>
+                <input
+                  type="text"
+                  placeholder="e.g. Jane Doe"
+                  value={form.name || ""}
+                  onChange={(e) => handleChange("name", e.target.value)}
+                  className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm focus:border-emerald-500 focus:outline-none"
+                />
+                {backendFieldErrors.name && (
+                  <p className="text-[10px] text-rose-500 mt-1">{backendFieldErrors.name}</p>
+                )}
+              </div>
+
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-xs font-semibold text-slate-600 mb-1">Age</label>

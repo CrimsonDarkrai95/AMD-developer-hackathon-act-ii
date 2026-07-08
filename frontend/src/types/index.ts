@@ -8,6 +8,7 @@ export interface PatientDropdownItem {
 }
 
 export interface Demographics {
+  name?: string;
   age: number;
   sex: string;
   a1c_percent: number;
@@ -74,6 +75,7 @@ export interface StreamEvent {
 }
 
 export interface CustomPatientInput {
+  name?: string;
   age: number;
   sex: "M" | "F";
   years_with_diabetes: number;

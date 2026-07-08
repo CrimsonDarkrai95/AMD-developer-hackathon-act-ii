@@ -52,6 +52,7 @@ def _total_duration_ms(specialist_results: list, synthesis: dict) -> int:
 
 def _generate_brief_fallback(patient_row: dict, specialist_results: list, synthesis: dict) -> str:
     patient_id = patient_row.get("patient_id", "Unknown")
+    name = patient_row.get("name", "")
     age = patient_row.get("age", "N/A")
     sex = patient_row.get("sex", "N/A")
     a1c = patient_row.get("a1c_percent", "N/A")
@@ -82,11 +83,11 @@ def _generate_brief_fallback(patient_row: dict, specialist_results: list, synthe
     # --- Risk Panel Summary -------------------------------------------------
     panel_lines = []
     for s in specialist_results:
-        name = str(s.get("specialist", "unknown")).capitalize()
+        name_spec = str(s.get("specialist", "unknown")).capitalize()
         risk = _fmt_num(s.get("risk_score", 0.0), 2)
         flag_label = "FLAGGED" if s.get("flag", False) else "clear"
         reasoning = str(s.get("reasoning", "")).strip()
-        panel_lines.append(f"- {name}: risk={risk} ({flag_label}) - {reasoning}")
+        panel_lines.append(f"- {name_spec}: risk={risk} ({flag_label}) - {reasoning}")
     panel_block = "\n".join(panel_lines) if panel_lines else "- No specialist results available."
 
     # --- Top Concern ---------------------------------------------------------
@@ -96,17 +97,21 @@ def _generate_brief_fallback(patient_row: dict, specialist_results: list, synthe
     # --- Methodology -----------------------------------------------------
     threshold_lines = []
     for s in specialist_results:
-        name = str(s.get("specialist", "unknown")).capitalize()
+        name_spec = str(s.get("specialist", "unknown")).capitalize()
         thresholds = s.get("thresholds_used", {})
         if thresholds:
             pairs = ", ".join(f"{k}={v}" for k, v in thresholds.items())
-            threshold_lines.append(f"- {name}: {pairs}")
+            threshold_lines.append(f"- {name_spec}: {pairs}")
     threshold_block = "\n".join(threshold_lines) if threshold_lines else "- No threshold data available."
 
-    return f"""DISCOVERY BRIEF - Diabetic Complication Risk Panel
-=====================================================
+    patient_header = f"Patient ID: {patient_id}"
+    if name:
+        patient_header += f"  |  Name: {name}"
 
-Patient ID: {patient_id}
+    return f"""DISCOVERY BRIEF - Diabetic Complication Early-Warning Swarm
+==================================================================
+
+{patient_header}
 Age: {age}  |  Sex: {sex}  |  A1c: {_fmt_num(a1c)}%  |  Years with diabetes: {_fmt_num(years, 0)}
 Mode: {mode}  |  Total analysis time: {total_ms} ms
 
@@ -138,7 +143,9 @@ sandboxed namespace, both under the same 0-1 risk_score contract.
 
 def _generate_brief_llm(patient_row: dict, specialist_results: list, synthesis: dict) -> str:
     user_prompt = (
-        f"Patient: ID={patient_row.get('patient_id')}, Age={patient_row.get('age')}, "
+        f"Patient: ID={patient_row.get('patient_id')}, "
+        f"Name={patient_row.get('name', '')}, "
+        f"Age={patient_row.get('age')}, "
         f"Sex={patient_row.get('sex')}, A1c={patient_row.get('a1c_percent')}%, "
         f"Years with diabetes={patient_row.get('years_with_diabetes')}\n\n"
         f"Labs: {patient_row}\n\n"

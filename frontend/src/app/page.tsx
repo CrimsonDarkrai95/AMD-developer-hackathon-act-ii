@@ -136,6 +136,7 @@ export default function DashboardPage() {
     if (customData) {
       // Set initial demographics preview
       setDemographics({
+        name: customData.name,
         age: customData.age,
         sex: customData.sex,
         a1c_percent: customData.a1c_percent,
@@ -144,6 +145,7 @@ export default function DashboardPage() {
 
       // Construct search params matching CustomPatientInput
       const params = new URLSearchParams({
+        name: customData.name || "",
         age: String(customData.age),
         sex: customData.sex,
         years_with_diabetes: String(customData.years_with_diabetes),
@@ -269,6 +271,7 @@ export default function DashboardPage() {
     
     // Convert to query params
     const params = new URLSearchParams({
+      name: data.name || "",
       age: String(data.age),
       sex: data.sex,
       years_with_diabetes: String(data.years_with_diabetes),

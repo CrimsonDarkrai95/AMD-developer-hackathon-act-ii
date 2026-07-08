@@ -17,13 +17,16 @@ export function PatientOverviewHeader({ patientId, demographics, labs }: Patient
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-4 sm:px-6 sm:py-5 transition-all duration-200 hover:shadow-sm">
         <div>
-          <p className="text-base font-semibold text-slate-900">Patient {patientId}</p>
+          <p className="text-base font-semibold text-slate-900">
+            Patient {patientId}
+            {demographics.name && ` - ${demographics.name}`}
+          </p>
           <p className="mt-0.5 text-sm text-slate-500">
             {demographics.sex} &middot; age {demographics.age} &middot; HbA1c {demographics.a1c_percent}%
           </p>
         </div>
         <span className="whitespace-nowrap text-xs sm:text-sm font-medium text-slate-400">
-          NHANES 2017&ndash;2018 &middot; de-identified
+          {patientId?.startsWith("CUSTOM") ? "Custom Screening Input" : "NHANES 2017–2018 · de-identified"}
         </span>
       </div>
 
