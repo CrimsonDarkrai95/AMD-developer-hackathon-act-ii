@@ -426,33 +426,14 @@ export default function DashboardPage() {
   }
 
   return (
-    <main className="mx-auto flex min-h-screen max-w-[1600px] flex-col gap-6 bg-slate-50 p-4 font-sans antialiased sm:p-6 lg:p-12 dark:bg-[#0b1120]">
-
-      {/* Onboarding Welcome Modal */}
-      <WelcomeModal isOpen={isWelcomeOpen} onClose={handleCloseWelcome} />
-
-      {/* Flagged-result toast notifications */}
-      <ToastStack toasts={toasts} onDismiss={dismissToast} />
-
-      {/* Custom Patient Input Form Modal */}
-      <CustomPatientModal
-        isOpen={isCustomModalOpen}
-        onClose={() => setIsCustomModalOpen(false)}
-        onSubmit={handleCustomPatientSubmit}
-        isSubmitting={isPipelineRunning}
-        backendFieldErrors={backendFieldErrors}
-        clearBackendErrors={() => setBackendFieldErrors({})}
-      />
-
+    <div className="min-h-screen bg-slate-50 dark:bg-[#0b1120] font-sans antialiased">
       {/* Sticky Header */}
-      <header className="sticky top-0 z-30 -mx-4 border-b border-slate-200 mt-0 bg-slate-50/90 px-4 py-2 backdrop-blur-md sm:-mx-6 sm:px-6 sm:py-2.5 lg:-mx-12 lg:px-12">
-        {/* Single flex row on lg+; stacked on mobile/tablet */}
-        <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between lg:gap-4">
-
+      <header className="sticky top-0 z-30 w-full border-b border-white/40 dark:border-slate-700/40 bg-white/40 dark:bg-slate-900/40 backdrop-blur-xl backdrop-saturate-150">
+        <div className="mx-auto flex max-w-[1600px] flex-col gap-3 px-4 py-2 sm:px-4 sm:py-2.5 lg:px-12 lg:flex-row lg:items-center lg:justify-between lg:gap-3">
           {/* Brand */}
           <div className="flex items-center justify-between w-full lg:w-auto">
             <div className="flex items-center gap-2.5">
-              <div className="flex h-11 w-11 sm:h-12 sm:w-12 flex-shrink-0 items-center justify-center overflow-hidden rounded-2xl bg-white p-1.5 shadow-sm ring-1 ring-slate-200/60 dark:bg-slate-800 dark:ring-slate-700/60">
+              <div className="flex h-11 w-11 sm:h-12 sm:w-12 flex-shrink-0 items-center justify-center overflow-hidden rounded-[32px] bg-white p-1.5 shadow-sm ring-1 ring-slate-200/60 dark:bg-slate-800 dark:ring-slate-700/60">
                 <Logo className="h-full w-full object-contain" />
               </div>
               <div>
@@ -534,9 +515,24 @@ export default function DashboardPage() {
         </div>
       </header>
 
+      <main className="mx-auto flex max-w-[1600px] flex-col gap-3 p-4 sm:p-4 lg:p-12 pt-4 sm:pt-4 lg:pt-6">
+        {/* Onboarding Welcome Modal */}
+        <WelcomeModal isOpen={isWelcomeOpen} onClose={handleCloseWelcome} />
 
+        {/* Flagged-result toast notifications */}
+        <ToastStack toasts={toasts} onDismiss={dismissToast} />
+
+        {/* Custom Patient Input Form Modal */}
+        <CustomPatientModal
+          isOpen={isCustomModalOpen}
+          onClose={() => setIsCustomModalOpen(false)}
+          onSubmit={handleCustomPatientSubmit}
+          isSubmitting={isPipelineRunning}
+          backendFieldErrors={backendFieldErrors}
+          clearBackendErrors={() => setBackendFieldErrors({})}
+        />
       {errorMessage && errorMessage.trim() && (
-        <div className="rounded-2xl border border-rose-200 bg-rose-50 p-4 font-mono text-sm text-rose-600 shadow-sm flex items-start gap-2">
+        <div className="rounded-[32px] border border-rose-200 bg-rose-50 p-4 font-mono text-sm text-rose-600 shadow-sm flex items-start gap-2">
           <svg className="h-4 w-4 flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
           </svg>
@@ -552,10 +548,10 @@ export default function DashboardPage() {
       />
 
       {/* Primary Dashboard Workspace Grid */}
-      <section className="grid grid-cols-1 gap-6 lg:grid-cols-12">
+      <section className="grid grid-cols-1 gap-3 lg:grid-cols-12">
 
         {/* Left Column: Diagnostics Tabs Panels */}
-        <div className="lg:col-span-9 flex flex-col gap-6">
+        <div className="lg:col-span-9 flex flex-col gap-3">
           <SwarmDiagnosticsTabs
             specialists={specialists}
             synthesis={synthesis}
@@ -568,7 +564,7 @@ export default function DashboardPage() {
         </div>
 
         {/* Right Column: Console Output & Lab Panels */}
-        <div className="lg:col-span-3 flex flex-col gap-6 lg:pt-[70px]">
+        <div className="lg:col-span-3 flex flex-col gap-3 lg:pt-[70px]">
           <LabsPanel labs={labs} isLoading={isPipelineRunning} />
           <LiveAgentTerminal
             terminalLogs={terminalLogs}
@@ -593,16 +589,20 @@ export default function DashboardPage() {
 
         {/* Disclaimer */}
         <div className="lg:col-span-12">
-          <div className="flex items-start gap-2.5 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800 shadow-sm">
+          <div className="flex items-start gap-2.5 rounded-[32px] border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800 shadow-sm">
             <svg className="h-4 w-4 flex-shrink-0 mt-0.5 text-amber-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
             </svg>
-            <p>
-              <span className="font-semibold">This tool assumes an existing diabetes diagnosis.</span> It screens for early kidney, nerve, eye, and heart <em>complications</em> in patients who already have diabetes. It does not diagnose diabetes itself, and it is a demo prototype, not a clinical device.
-            </p>
+            <div className="flex flex-col gap-0.5">
+              <span className="font-bold uppercase tracking-wider text-[10px] text-amber-900">Disclaimer</span>
+              <p>
+                <span className="font-semibold">This tool assumes an existing diabetes diagnosis.</span> It screens for early kidney, nerve, eye, and heart <em>complications</em> in patients who already have diabetes. It does not diagnose diabetes itself, and it is a demo prototype, not a clinical device.
+              </p>
+            </div>
           </div>
         </div>
       </section>
-    </main>
+      </main>
+    </div>
   );
 }

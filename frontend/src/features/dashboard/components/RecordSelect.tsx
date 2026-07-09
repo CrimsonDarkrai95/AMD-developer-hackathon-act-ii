@@ -68,7 +68,7 @@ export function RecordSelect({ patients, value, onChange, disabled }: RecordSele
       {isOpen && (
         <ul
           role="listbox"
-          className="absolute left-0 top-full z-40 mt-2 max-h-72 w-max min-w-[260px] overflow-y-auto rounded-2xl border border-slate-200 bg-white p-1.5 shadow-lg dark:border-slate-700 dark:bg-slate-900"
+          className="absolute left-0 top-full z-40 mt-2 max-h-72 w-max min-w-[260px] overflow-y-auto rounded-[32px] border border-slate-200 bg-white p-1.5 shadow-lg dark:border-slate-700 dark:bg-slate-900"
         >
           {patients.map((p) => {
             const isSelected = p.patient_id === value;

@@ -58,7 +58,7 @@ export function WelcomeModal({ isOpen, onClose }: WelcomeModalProps) {
   return (
     /* Overlay — bottom-sheet on mobile, centered dialog on sm+ */
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-slate-900/60 backdrop-blur-sm animate-fade-in">
-      <div className="relative w-full sm:max-w-lg rounded-t-3xl sm:rounded-3xl border border-slate-200 bg-white shadow-2xl flex flex-col max-h-[92dvh] sm:max-h-[90vh] overflow-hidden">
+      <div className="relative w-full sm:max-w-lg rounded-t-[32px] sm:rounded-[32px] border border-slate-200 bg-white shadow-2xl flex flex-col max-h-[92dvh] sm:max-h-[90vh] overflow-hidden">
 
         {/* Mobile drag handle */}
         <div className="flex justify-center pt-3 sm:hidden shrink-0">
@@ -78,7 +78,7 @@ export function WelcomeModal({ isOpen, onClose }: WelcomeModalProps) {
 
           {/* Brand header */}
           <div className="flex items-center gap-3 pr-8">
-            <div className="flex h-14 w-14 sm:h-16 sm:w-16 flex-shrink-0 items-center justify-center overflow-hidden rounded-2xl bg-white p-2 shadow-sm ring-1 ring-slate-200/60 dark:bg-slate-800 dark:ring-slate-700/60">
+            <div className="flex h-14 w-14 sm:h-16 sm:w-16 flex-shrink-0 items-center justify-center overflow-hidden rounded-[32px] bg-white p-2 shadow-sm ring-1 ring-slate-200/60 dark:bg-slate-800 dark:ring-slate-700/60">
               <Logo className="h-full w-full object-contain" />
             </div>
             <div>
@@ -99,7 +99,7 @@ export function WelcomeModal({ isOpen, onClose }: WelcomeModalProps) {
                 <p className="text-sm sm:text-base leading-relaxed text-slate-600">
                   Diabetic kidney, nerve, eye, and heart complications develop silently. Symptoms often don&apos;t appear until the damage is already advanced, and by the time a standard annual screening catches it, treatment options are more limited and more costly.
                 </p>
-                <div className="relative overflow-hidden rounded-2xl bg-slate-50 p-4 pl-5">
+                <div className="relative overflow-hidden rounded-[32px] bg-slate-50 p-4 pl-5">
                   <div className="absolute inset-y-0 left-0 w-[3px] bg-amber-400" />
                   <div className="flex items-center gap-1.5">
                     <Icon path={ICON_PATHS.warning} className="h-3.5 w-3.5 flex-shrink-0 text-amber-500" />
@@ -119,7 +119,7 @@ export function WelcomeModal({ isOpen, onClose }: WelcomeModalProps) {
                 <p className="text-sm sm:text-base leading-relaxed text-slate-600">
                   Four specialist agents screen a patient&apos;s real labs for early kidney, nerve, eye, and heart complications, years before they&apos;d surface in a standard screening.
                 </p>
-                <div className="rounded-2xl border border-slate-100 bg-slate-50/50 p-4">
+                <div className="rounded-[32px] border border-slate-100 bg-slate-50/50 p-4">
                   <div className="flex items-center gap-2">
                     <Icon path={ICON_PATHS.sandbox} className="h-4 w-4 flex-shrink-0 text-slate-500" />
                     <p className="text-sm font-semibold text-slate-800">Real sandboxed execution</p>
@@ -139,7 +139,7 @@ export function WelcomeModal({ isOpen, onClose }: WelcomeModalProps) {
                   {architectureSteps.map((step) => (
                     <div
                       key={step.key}
-                      className="flex items-center gap-3 rounded-2xl border border-slate-100 bg-slate-50/50 p-3 transition-colors hover:bg-slate-50"
+                      className="flex items-center gap-3 rounded-[32px] border border-slate-100 bg-slate-50/50 p-3 transition-colors hover:bg-slate-50"
                     >
                       <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full bg-white shadow-sm">
                         {step.key === "retinal" ? (
@@ -159,7 +159,7 @@ export function WelcomeModal({ isOpen, onClose }: WelcomeModalProps) {
                   ))}
                 </div>
 
-                <div className="flex items-center gap-3 rounded-2xl border border-sky-100 bg-sky-50/50 p-3">
+                <div className="flex items-center gap-3 rounded-[32px] border border-sky-100 bg-sky-50/50 p-3">
                   <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full bg-white shadow-sm">
                     <Icon path={ICON_PATHS.synthesis} className="h-5 w-5 text-sky-600" />
                   </div>
@@ -178,7 +178,7 @@ export function WelcomeModal({ isOpen, onClose }: WelcomeModalProps) {
                 <p className="text-sm sm:text-base leading-relaxed text-slate-600">
                   Each specialist agent doesn&apos;t run a fixed formula. It writes its own Python analysis script, executes it in an isolated backend sandbox against that patient&apos;s real lab values, and returns a reasoned, auditable risk assessment.
                 </p>
-                <div className="rounded-2xl border border-slate-800 bg-slate-900 p-4 font-mono text-[11px] sm:text-xs leading-relaxed text-emerald-400 overflow-x-auto">
+                <div className="rounded-[32px] border border-slate-800 bg-slate-900 p-4 font-mono text-[11px] sm:text-xs leading-relaxed text-emerald-400 overflow-x-auto">
                   <p className="text-slate-500">{"> [RENAL_SPECIALIST] writing analysis script..."}</p>
                   <p className="text-slate-500">{"> executing in sandbox: egfr=58.2, uacr=142.0"}</p>
                   <p>{"> risk_score=0.71  [⚠ FLAGGED]"}</p>
@@ -204,7 +204,7 @@ export function WelcomeModal({ isOpen, onClose }: WelcomeModalProps) {
                     { title: "Nationally representative", desc: "Spans a broad range of ages & risk profiles" },
                     { title: "Familiar labs", desc: "The same panels your PCP already orders" },
                   ].map((c) => (
-                    <div key={c.title} className="rounded-2xl border border-slate-100 bg-slate-50/50 p-3">
+                    <div key={c.title} className="rounded-[32px] border border-slate-100 bg-slate-50/50 p-3">
                       <div className="flex h-8 w-8 items-center justify-center rounded-full bg-white shadow-sm mb-2">
                         <Icon path={ICON_PATHS.database} className="h-4 w-4 text-slate-600" />
                       </div>
@@ -223,7 +223,7 @@ export function WelcomeModal({ isOpen, onClose }: WelcomeModalProps) {
                 <p className="text-sm sm:text-base leading-relaxed text-slate-600">
                   Every run ends with a single synthesized recommendation, not four disconnected scores.
                 </p>
-                <div className="rounded-2xl border border-slate-200 bg-white shadow-sm overflow-hidden">
+                <div className="rounded-[32px] border border-slate-200 bg-white shadow-sm overflow-hidden">
                   <div className="flex items-center gap-2 border-b border-slate-100 bg-slate-50/70 px-4 py-2.5">
                     <Icon path={ICON_PATHS.chart} className="h-4 w-4 text-slate-500" />
                     <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">Discovery Brief &middot; Patient #4471</p>
@@ -257,7 +257,7 @@ export function WelcomeModal({ isOpen, onClose }: WelcomeModalProps) {
                 <p className="text-sm sm:text-base leading-relaxed text-slate-600">
                   Don&apos;t just browse the demo dataset. Plug in a real set of lab values and watch the swarm analyze them live.
                 </p>
-                <div className="relative overflow-hidden rounded-2xl bg-slate-50 p-4 pl-5">
+                <div className="relative overflow-hidden rounded-[32px] bg-slate-50 p-4 pl-5">
                   <div className="absolute inset-y-0 left-0 w-[3px] bg-emerald-400" />
                   <div className="flex items-center gap-1.5">
                     <Icon path={ICON_PATHS.cursor} className="h-3.5 w-3.5 flex-shrink-0 text-emerald-600" />
@@ -267,7 +267,7 @@ export function WelcomeModal({ isOpen, onClose }: WelcomeModalProps) {
                     It&apos;s the highlighted button next to the patient selector at the top. Enter age, A1c, eGFR, UACR, lipid panel, and blood pressure, then run the swarm on your own numbers.
                   </p>
                 </div>
-                <div className="flex items-center gap-3 rounded-2xl border border-slate-100 bg-slate-50/50 p-3">
+                <div className="flex items-center gap-3 rounded-[32px] border border-slate-100 bg-slate-50/50 p-3">
                   <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full bg-white shadow-sm">
                     <Icon path={ICON_PATHS.plus} className="h-5 w-5 text-emerald-600" />
                   </div>
@@ -288,7 +288,7 @@ export function WelcomeModal({ isOpen, onClose }: WelcomeModalProps) {
                     Edit before submission
                   </span>
                 </div>
-                <div className="rounded-2xl border-2 border-dashed border-red-300 bg-red-50/60 p-4 space-y-2.5">
+                <div className="rounded-[32px] border-2 border-dashed border-red-300 bg-red-50/60 p-4 space-y-2.5">
                   <div className="flex items-center gap-2">
                     <Icon path={ICON_PATHS.warning} className="h-4 w-4 flex-shrink-0 text-red-600" />
                     <p className="text-sm font-semibold text-red-700">TODO: swap in final AMD compute details</p>
@@ -297,7 +297,7 @@ export function WelcomeModal({ isOpen, onClose }: WelcomeModalProps) {
                     We&apos;re testing on non-AMD hardware right now due to limited credits. Before submission, replace this slide with the actual AMD stack we run on (e.g. Instinct GPU / ROCm details, which agent workloads run where, any performance numbers).
                   </p>
                 </div>
-                <div className="flex items-center gap-3 rounded-2xl border border-slate-100 bg-slate-50/50 p-3 opacity-60">
+                <div className="flex items-center gap-3 rounded-[32px] border border-slate-100 bg-slate-50/50 p-3 opacity-60">
                   <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full bg-white shadow-sm">
                     <Icon path={ICON_PATHS.cpu} className="h-5 w-5 text-slate-500" />
                   </div>
@@ -323,7 +323,7 @@ export function WelcomeModal({ isOpen, onClose }: WelcomeModalProps) {
                     { title: "At-risk patients", desc: "Earlier intervention, better long-term outcomes" },
                     { title: "Population health teams", desc: "Screen at scale across large patient panels" },
                   ].map((c) => (
-                    <div key={c.title} className="flex items-start gap-3 rounded-2xl border border-slate-100 bg-slate-50/50 p-3">
+                    <div key={c.title} className="flex items-start gap-3 rounded-[32px] border border-slate-100 bg-slate-50/50 p-3">
                       <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full bg-white shadow-sm">
                         <Icon path={ICON_PATHS.users} className="h-4 w-4 text-slate-600" />
                       </div>

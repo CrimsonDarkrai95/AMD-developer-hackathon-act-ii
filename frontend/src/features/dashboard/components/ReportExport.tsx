@@ -47,8 +47,8 @@ export function ReportExport({
   }
 
   return (
-    <div className="rounded-3xl border border-slate-200 bg-white p-4 sm:p-6 transition-all duration-200 hover:border-slate-300 hover:shadow-md space-y-5">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between border border-slate-100 bg-slate-50/50 rounded-2xl p-4">
+    <div className="rounded-[32px] border border-slate-200 bg-white p-3 sm:p-4 transition-all duration-200 hover:border-slate-300 hover:shadow-md space-y-5">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between border border-slate-100 bg-slate-50/50 rounded-[32px] p-4">
         <div className="flex-1">
           <h2 className="text-sm font-semibold text-slate-800">
             Clinical discovery brief &amp; document export
@@ -90,7 +90,7 @@ export function ReportExport({
           <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">
             Discovery Brief Document
           </span>
-          <div className="relative rounded-2xl border border-slate-200 bg-slate-950 p-5 shadow-inner">
+          <div className="relative rounded-[32px] border border-slate-200 bg-slate-950 p-5 shadow-inner">
             <pre className="scrollbar-thin scrollbar-thumb-white/10 max-h-[400px] overflow-y-auto font-mono text-xs md:text-sm text-sky-400/90 whitespace-pre-wrap leading-relaxed">
               {clinicalBrief}
             </pre>

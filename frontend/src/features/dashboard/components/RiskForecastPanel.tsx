@@ -38,7 +38,7 @@ interface RiskForecastPanelProps {
 export function RiskForecastPanel({ specialists, isLoading }: RiskForecastPanelProps) {
   if (isLoading) {
     return (
-      <div className="rounded-3xl border border-slate-200 bg-white p-4 sm:p-6 transition-all duration-200 hover:shadow-md flex items-center justify-center min-h-[140px]">
+      <div className="rounded-[32px] border border-slate-200 bg-white p-3 sm:p-4 transition-all duration-200 hover:shadow-md flex items-center justify-center min-h-[140px]">
         <div className="flex flex-col items-center gap-2 text-slate-400">
           <span className="h-5 w-5 animate-spin rounded-full border-2 border-sky-500 border-t-transparent" />
           <p className="text-sm font-semibold tracking-wide uppercase text-[10px]">Running swarm...</p>
@@ -48,14 +48,14 @@ export function RiskForecastPanel({ specialists, isLoading }: RiskForecastPanelP
   }
 
   return (
-    <div className="rounded-3xl border border-slate-200 bg-white p-4 sm:p-6 transition-all duration-200 hover:border-slate-300 hover:shadow-md">
+    <div className="rounded-[32px] border border-slate-200 bg-white p-3 sm:p-4 transition-all duration-200 hover:border-slate-300 hover:shadow-md">
       <h3 className="mb-4 text-base font-semibold text-slate-800 uppercase tracking-wider text-xs">Risk forecast</h3>
       <div className="divide-y divide-slate-100">
         {specialists.map((s) => {
           const meta = SPECIALIST_META[s.specialist] ?? { label: s.specialist, subtitle: "" };
           const tier = riskTier(s.risk_score, s.flag);
           return (
-            <div key={s.specialist} className="flex items-start gap-4 rounded-xl px-2 py-4 transition-colors duration-150 first:pt-0 last:pb-0 hover:bg-slate-50/50">
+            <div key={s.specialist} className="flex items-start gap-3 rounded-xl px-2 py-4 transition-colors duration-150 first:pt-0 last:pb-0 hover:bg-slate-50/50">
               <div className="min-w-0 flex-1">
                 <p className="text-base font-semibold text-slate-900">
                   {meta.label}{meta.subtitle && <span className="text-sm font-normal text-slate-400"> &middot; {meta.subtitle}</span>}

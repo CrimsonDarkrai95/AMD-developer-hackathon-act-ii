@@ -119,7 +119,7 @@ export function CustomPatientModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-fade-in">
-      <div className="relative w-full max-w-2xl rounded-3xl border border-slate-200 bg-white shadow-2xl flex flex-col max-h-[90dvh] overflow-hidden">
+      <div className="relative w-full max-w-2xl rounded-[32px] border border-slate-200 bg-white shadow-2xl flex flex-col max-h-[90dvh] overflow-hidden">
         
         {/* Modal Header */}
         <div className="flex items-center justify-between border-b border-slate-100 px-6 py-4 sm:px-8">
@@ -138,7 +138,7 @@ export function CustomPatientModal({
         </div>
 
         {/* Modal Body */}
-        <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto p-6 sm:p-8 space-y-6">
+        <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto p-4 sm:p-8 space-y-6">
           
           {/* Quick presets */}
           <div className="flex items-center gap-2 pb-2 border-b border-slate-100">
@@ -160,13 +160,13 @@ export function CustomPatientModal({
           </div>
 
           {/* Row 1: Section headers */}
-          <div className="grid grid-cols-2 gap-6">
+          <div className="grid grid-cols-2 gap-3">
             <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400">Demographics & Profile</h3>
             <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400">Renal Function</h3>
           </div>
 
           {/* Row 2: Full Name (left) | eGFR (right) — same visual row */}
-          <div className="grid grid-cols-2 gap-6">
+          <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="block text-xs font-semibold text-slate-600 mb-1">Full Name (Optional)</label>
               <input
@@ -196,7 +196,7 @@ export function CustomPatientModal({
           </div>
 
           {/* Row 3: Age + Sex (left) | UACR + Creatinine (right) */}
-          <div className="grid grid-cols-2 gap-6">
+          <div className="grid grid-cols-2 gap-3">
             {/* Age + Sex sub-grid */}
             <div className="grid grid-cols-2 gap-3">
               <div>
@@ -259,7 +259,7 @@ export function CustomPatientModal({
           </div>
 
           {/* Row 4: Diabetic Duration + HbA1c (left) | empty (right, balanced) */}
-          <div className="grid grid-cols-2 gap-6">
+          <div className="grid grid-cols-2 gap-3">
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <label className="block text-xs font-semibold text-slate-600 mb-1">Diabetes Duration(yrs)</label>
@@ -292,7 +292,7 @@ export function CustomPatientModal({
             <div />
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-4 border-t border-slate-100">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-4 border-t border-slate-100">
             
             {/* Section 3: Lipid Panel */}
             <div className="space-y-4">

@@ -10,7 +10,7 @@ export function SynthesisCallout({ specialists, synthesis, isLoading }: Synthesi
   // Bridge state — specialists have started reporting but synthesis hasn't landed yet.
   if (isLoading && !synthesis && specialists.length > 0) {
     return (
-      <div className="rounded-2xl border border-sky-100 bg-sky-50/60 p-4 sm:p-5 lg:p-6">
+      <div className="rounded-[32px] border border-sky-100 bg-sky-50/60 p-4 sm:p-5 lg:p-4">
         <div className="flex items-center gap-2.5">
           <span className="h-4 w-4 flex-shrink-0 animate-spin rounded-full border-2 border-sky-500 border-t-transparent" />
           <p className="text-sm font-semibold text-sky-700">Synthesizing recommendation&hellip;</p>
@@ -30,7 +30,7 @@ export function SynthesisCallout({ specialists, synthesis, isLoading }: Synthesi
   const flaggedCount = specialists.filter((s) => s.flag).length;
 
   return (
-    <div className="rounded-2xl border border-slate-200 bg-white p-4 sm:p-5 lg:p-6 transition-all duration-200 hover:border-slate-300 hover:-translate-y-0.5 hover:shadow-md">
+    <div className="rounded-[32px] border border-slate-200 bg-white p-4 sm:p-5 lg:p-4 transition-all duration-200 hover:border-slate-300 hover:-translate-y-0.5 hover:shadow-md">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1.5 sm:gap-3">
         <p className="text-base font-semibold text-slate-800">Synthesis recommendation</p>
         <p className="text-xs sm:text-sm text-slate-500 font-medium">{flaggedCount} of {specialists.length} specialists flagged</p>

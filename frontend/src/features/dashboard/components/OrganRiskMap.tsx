@@ -101,7 +101,7 @@ export function OrganRiskMap({ specialists = [], synthesis, isLoading = false }:
   };
 
   return (
-    <div className="flex h-full flex-col gap-4 font-sans text-slate-800">
+    <div className="flex h-full flex-col gap-3 font-sans text-slate-800">
       <div className="flex items-center justify-between border-b border-slate-100 pb-2">
         <div className="flex flex-col">
           <h2 className="text-sm font-semibold tracking-tight text-slate-700">
@@ -118,7 +118,7 @@ export function OrganRiskMap({ specialists = [], synthesis, isLoading = false }:
             mode) because that shared dark override lands almost the
             exact same navy as the parent glass-card, so the panel was
             invisible against its own container in dark mode. */}
-        <div className="flex-1 flex items-center justify-center bg-slate-100/70 dark:bg-slate-800/40 border border-slate-200/60 dark:border-slate-700/50 rounded-3xl p-4 min-h-[340px] relative overflow-hidden select-none">
+        <div className="flex-1 flex items-center justify-center bg-slate-100/70 dark:bg-slate-800/40 border border-slate-200/60 dark:border-slate-700/50 rounded-[32px] p-4 min-h-[340px] relative overflow-hidden select-none">
           {/* Dotted Grid Pattern Background — separate light/dark layers
               since dark dots on a dark panel are invisible. */}
           <div className="pointer-events-none absolute inset-0 opacity-[0.03] dark:hidden bg-[linear-gradient(to_right,#0f172a_1px,transparent_1px),linear-gradient(to_bottom,#0f172a_1px,transparent_1px)] bg-[size:14px_14px]" />
@@ -128,7 +128,7 @@ export function OrganRiskMap({ specialists = [], synthesis, isLoading = false }:
               since three.js can't run server-side. Preserves the exact
               same bidirectional highlight state (activeSpec) the old SVG
               hotspots used. */}
-          <div className="w-full h-full max-w-[260px] max-h-[320px]">
+          <div className="w-full h-full max-w-[600px] max-h-[600px]">
             <OrganRiskMap3D
               specialists={specialists}
               activeSpec={activeSpec}

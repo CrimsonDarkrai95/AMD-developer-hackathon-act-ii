@@ -2,7 +2,7 @@ import React from "react";
 
 export function ClinicalWarningLegend() {
   return (
-    <div className="rounded-3xl border border-slate-200 bg-white p-5 sm:p-6 transition-all duration-200 hover:border-slate-300 hover:shadow-md">
+    <div className="rounded-[32px] border border-slate-200 bg-white p-5 sm:p-4 transition-all duration-200 hover:border-slate-300 hover:shadow-md">
       <h4 className="text-sm font-bold uppercase tracking-wider text-slate-400">Clinical Severity Guide</h4>
       <p className="mt-1 text-xs text-slate-500 font-medium mb-4">
         Interpretation of early-warning screening color states:

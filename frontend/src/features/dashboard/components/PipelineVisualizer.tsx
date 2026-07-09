@@ -76,7 +76,7 @@ export function PipelineVisualizer({
   };
 
   return (
-    <div className="rounded-3xl border border-slate-200 bg-white p-5 md:p-6 transition-all duration-200 hover:border-slate-300 hover:shadow-md">
+    <div className="rounded-[32px] border border-slate-200 bg-white p-5 md:p-4 transition-all duration-200 hover:border-slate-300 hover:shadow-md">
       <div className="mb-4 flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-100 pb-3">
         <div>
           <h3 className="text-sm font-semibold tracking-tight text-slate-700">Swarm Execution Workflow</h3>
@@ -99,7 +99,7 @@ export function PipelineVisualizer({
         </div>
       </div>
 
-      <div className="flex flex-col md:flex-row items-center justify-between gap-6 md:gap-2 relative w-full mt-4 pb-2">
+      <div className="flex flex-col md:flex-row items-center justify-between gap-3 md:gap-2 relative w-full mt-4 pb-2">
         
         {/* Node 1: Patient Labs */}
         <div className="flex flex-col items-center z-10 w-full md:w-auto">
@@ -126,7 +126,7 @@ export function PipelineVisualizer({
         {/* Node 2: 4 Specialist Agents (Parallel Panel) */}
         <div className="flex flex-col items-center z-10 w-full md:w-auto">
           {/* grid-cols-2 on narrow mobile → flex row on md+ */}
-          <div className="rounded-2xl border border-slate-200 bg-slate-50/50 p-3 grid grid-cols-2 md:flex md:flex-nowrap gap-3 items-center justify-center shadow-inner w-full md:w-auto">
+          <div className="rounded-[32px] border border-slate-200 bg-slate-50/50 p-3 grid grid-cols-2 md:flex md:flex-nowrap gap-3 items-center justify-center shadow-inner w-full md:w-auto">
             {specialistKeys.map((key) => {
               const spec = completedSpecialists[key];
               const isDone = !!spec;

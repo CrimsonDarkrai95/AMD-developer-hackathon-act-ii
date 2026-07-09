@@ -223,40 +223,21 @@ function useIsDark() {
 function HumanoidFigure({ isDark }: { isDark: boolean }) {
   // Dark mode: bright, glowy "hologram" — cyan emissive pop against a
   // near-black panel reads as a scan effect.
-  // Light mode: same sky-blue family, but opacity dropped further than
-  // it first looks like it should need. The body is double-sided (so it
-  // doesn't look hollow/backface-culled mid-rotation), which means at
-  // most viewing angles you're looking through TWO translucent layers
-  // (the near wall and the far wall of the same capsule) stacked on top
-  // of each other, plus the wireframe overlay on top of that — so the
-  // effective opacity reads much higher than the nominal number. 0.38
-  // was still landing as a fairly solid-looking blue shape rather than
-  // the glassy/translucent figure this is supposed to be.
+  // Light mode: sky-blue family, softened slightly so it remains readable
+  // against a white background without being overly dark or dense.
   const bodyMaterial = useMemo(
     () =>
       new THREE.MeshPhysicalMaterial({
-        color: new THREE.Color(isDark ? "#0ea5e9" : "#3b5bdb"),
+        color: new THREE.Color(isDark ? "#0ea5e9" : "#0284c7"),
         transparent: true,
-        opacity: isDark ? 0.44 : 0.44,
-        roughness: 0.2,
-        metalness: 0.05,
-        clearcoat: 0.4,
-        clearcoatRoughness: 0.3,
-        emissive: new THREE.Color(isDark ? "#22d3ee" : "#4c6ef5"),
-        emissiveIntensity: isDark ? 0.14 : 0.1,
+        opacity: isDark ? 0.44 : 0.35,
+        roughness: 0.1,
+        metalness: 0.1,
+        clearcoat: 0.8,
+        clearcoatRoughness: 0.2,
+        emissive: new THREE.Color(isDark ? "#22d3ee" : "#0ea5e9"),
+        emissiveIntensity: isDark ? 0.14 : 0.2,
         side: THREE.DoubleSide,
-        depthWrite: false,
-      }),
-    [isDark]
-  );
-
-  const wireMaterial = useMemo(
-    () =>
-      new THREE.MeshBasicMaterial({
-        color: new THREE.Color(isDark ? "#38bdf8" : "#1e3a8a"),
-        wireframe: true,
-        transparent: true,
-        opacity: isDark ? 0.35 : 0.65,
         depthWrite: false,
       }),
     [isDark]
@@ -266,23 +247,12 @@ function HumanoidFigure({ isDark }: { isDark: boolean }) {
     <group position={[0, RIG_Y_OFFSET, 0]}>
       {/* Head */}
       <mesh position={[0, HEAD_Y, 0]} material={bodyMaterial} renderOrder={1}>
-        <sphereGeometry args={[HEAD_R, 10, 8]} />
-      </mesh>
-      <mesh position={[0, HEAD_Y, 0]} material={wireMaterial} renderOrder={2}>
-        <sphereGeometry args={[HEAD_R + 0.004, 10, 8]} />
-      </mesh>
-
-      {/* Neck */}
-      <mesh position={[0, NECK_Y, 0]} material={bodyMaterial} renderOrder={1}>
-        <cylinderGeometry args={[0.04, 0.052, NECK_LEN, 8]} />
+        <sphereGeometry args={[HEAD_R, 32, 32]} />
       </mesh>
 
       {/* Torso */}
       <mesh position={[0, TORSO_Y, 0]} material={bodyMaterial} renderOrder={1}>
-        <capsuleGeometry args={[TORSO_R, TORSO_LEN, 4, 8]} />
-      </mesh>
-      <mesh position={[0, TORSO_Y, 0]} material={wireMaterial} renderOrder={2}>
-        <capsuleGeometry args={[TORSO_R + 0.004, TORSO_LEN, 4, 8]} />
+        <capsuleGeometry args={[TORSO_R, TORSO_LEN, 16, 32]} />
       </mesh>
 
       {/* Arms — each is a pivot group at the shoulder, rotated outward,
@@ -295,10 +265,7 @@ function HumanoidFigure({ isDark }: { isDark: boolean }) {
           rotation={[0, 0, side * ARM_ANGLE]}
         >
           <mesh position={[0, -ARM_LEN / 2, 0]} material={bodyMaterial} renderOrder={1}>
-            <capsuleGeometry args={[ARM_R, ARM_LEN - ARM_R * 2, 4, 8]} />
-          </mesh>
-          <mesh position={[0, -ARM_LEN / 2, 0]} material={wireMaterial} renderOrder={2}>
-            <capsuleGeometry args={[ARM_R + 0.003, ARM_LEN - ARM_R * 2, 4, 8]} />
+            <capsuleGeometry args={[ARM_R, ARM_LEN - ARM_R * 2, 16, 32]} />
           </mesh>
         </group>
       ))}
@@ -312,10 +279,7 @@ function HumanoidFigure({ isDark }: { isDark: boolean }) {
           rotation={[0, 0, side * LEG_ANGLE]}
         >
           <mesh position={[0, -LEG_LEN / 2, 0]} material={bodyMaterial} renderOrder={1}>
-            <capsuleGeometry args={[LEG_R, LEG_LEN - LEG_R * 2, 4, 8]} />
-          </mesh>
-          <mesh position={[0, -LEG_LEN / 2, 0]} material={wireMaterial} renderOrder={2}>
-            <capsuleGeometry args={[LEG_R + 0.003, LEG_LEN - LEG_R * 2, 4, 8]} />
+            <capsuleGeometry args={[LEG_R, LEG_LEN - LEG_R * 2, 16, 32]} />
           </mesh>
         </group>
       ))}

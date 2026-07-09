@@ -109,7 +109,7 @@ export function SwarmDiagnosticsTabs({
   } : null);
 
   return (
-    <div className="flex flex-col gap-6">
+    <div className="flex flex-col gap-3">
 
       {/* Horizontally scrollable tab row — no wrapping on any screen size */}
       <div className="-mx-px flex overflow-x-auto border-b border-slate-200 scrollbar-none" style={{ scrollbarWidth: 'none' }}>
@@ -136,15 +136,15 @@ export function SwarmDiagnosticsTabs({
               isLoading={isLoading}
               patientId={patientId}
             />
-            <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-              <div className="lg:col-span-7 xl:col-span-8 rounded-3xl border border-slate-200 bg-white p-4 sm:p-6 transition-all duration-200 hover:border-slate-300 hover:shadow-md">
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-3">
+              <div className="lg:col-span-7 xl:col-span-8 rounded-[32px] border border-slate-200 bg-white p-3 sm:p-4 transition-all duration-200 hover:border-slate-300 hover:shadow-md">
                 <OrganRiskMap
                   specialists={specialists}
                   synthesis={synthesis}
                   isLoading={isLoading}
                 />
               </div>
-              <div className="lg:col-span-5 xl:col-span-4 flex flex-col gap-6">
+              <div className="lg:col-span-5 xl:col-span-4 flex flex-col gap-3">
                 <SynthesisCallout
                   specialists={specialists}
                   synthesis={synthesis}
@@ -159,7 +159,7 @@ export function SwarmDiagnosticsTabs({
         {activeTab === "analysis" && (
           <div className="space-y-6 animate-fade-in">
             {specialists.length === 0 && !isLoading ? (
-              <div className="flex min-h-[300px] flex-col items-center justify-center gap-2 rounded-2xl border border-dashed border-slate-200 text-center p-8">
+              <div className="flex min-h-[300px] flex-col items-center justify-center gap-2 rounded-[32px] border border-dashed border-slate-200 text-center p-8">
                 <svg className="h-10 w-10 text-slate-300 mb-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12.75L11.25 15 15 9.75M21 12c0 1.268-.63 2.39-1.593 3.068a3.745 3.745 0 01-1.043 3.296 3.745 3.745 0 01-3.296 1.043A3.745 3.745 0 0112 21c-1.268 0-2.39-.63-3.068-1.593a3.746 3.746 0 01-3.296-1.043 3.745 3.745 0 01-1.043-3.296A3.745 3.745 0 013 12c0-1.268.63-2.39 1.593-3.068a3.745 3.745 0 011.043-3.296 3.746 3.746 0 013.296-1.043A3.746 3.746 0 0112 3c1.268 0 2.39.63 3.068 1.593a3.746 3.746 0 013.296 1.043 3.746 3.746 0 011.043 3.296A3.745 3.745 0 0121 12z" />
                 </svg>
@@ -167,7 +167,7 @@ export function SwarmDiagnosticsTabs({
                 <p className="text-xs text-slate-400 max-w-[280px]">Run the swarm on a patient to see each specialist&apos;s reasoning, referenced labs, and applied cutoffs here.</p>
               </div>
             ) : (
-              <div className="grid grid-cols-1 gap-6">
+              <div className="grid grid-cols-1 gap-3">
                 {specialists.map((spec) => {
                   const meta = specialistMeta[spec.specialist] ?? { label: spec.specialist.toUpperCase(), themeColor: "slate" };
                   const thresholdEntries = Object.entries(spec.thresholds_used || {});
@@ -176,7 +176,7 @@ export function SwarmDiagnosticsTabs({
                   return (
                     <div
                       key={spec.specialist}
-                      className="rounded-3xl border border-slate-200 bg-white p-6 transition-all duration-200 hover:border-slate-300 hover:shadow-md"
+                      className="rounded-[32px] border border-slate-200 bg-white p-4 transition-all duration-200 hover:border-slate-300 hover:shadow-md"
                     >
                       <div className="flex items-center justify-between border-b border-slate-100 pb-3 mb-4">
                         <div className="flex items-center gap-2">
@@ -198,17 +198,17 @@ export function SwarmDiagnosticsTabs({
                       </div>
 
                       {!spec.available ? (
-                        <div className="rounded-2xl border border-dashed border-slate-300 bg-slate-50/60 p-5">
+                        <div className="rounded-[32px] border border-dashed border-slate-300 bg-slate-50/60 p-5">
                           <p className="text-sm text-slate-500 leading-relaxed">
                             No analysis was performed for this specialist &mdash; there is no rule-based
                             fallback in this system. <span className="font-medium text-slate-600">{spec.reasoning}</span>
                           </p>
                         </div>
                       ) : (
-                        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+                        <div className="grid grid-cols-1 lg:grid-cols-12 gap-3">
                           <div className="lg:col-span-6 space-y-2">
                             <h5 className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Clinical Reasoning</h5>
-                            <p className="text-sm text-slate-600 leading-relaxed bg-slate-50/50 p-4 rounded-2xl border border-slate-100">
+                            <p className="text-sm text-slate-600 leading-relaxed bg-slate-50/50 p-4 rounded-[32px] border border-slate-100">
                               {spec.reasoning}
                             </p>
                             <div className="mt-3 flex items-center gap-2 text-xs font-semibold text-slate-400 font-mono">
@@ -222,7 +222,7 @@ export function SwarmDiagnosticsTabs({
                           <div className="lg:col-span-6 space-y-4">
                             <div className="space-y-2">
                               <h5 className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Patient Values Referenced</h5>
-                              <div className="rounded-2xl border border-slate-200 bg-slate-50/20 divide-y divide-slate-200">
+                              <div className="rounded-[32px] border border-slate-200 bg-slate-50/20 divide-y divide-slate-200">
                                 {labEntries.length === 0 ? (
                                   <p className="p-3 text-xs text-slate-400 italic">No lab values recorded for this specialist.</p>
                                 ) : labEntries.map(([labKey, val]) => (
@@ -238,7 +238,7 @@ export function SwarmDiagnosticsTabs({
                               <h5 className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">
                                 Cutoffs The Model Applied This Run
                               </h5>
-                              <div className="rounded-2xl border border-slate-200 bg-slate-50/20 divide-y divide-slate-200">
+                              <div className="rounded-[32px] border border-slate-200 bg-slate-50/20 divide-y divide-slate-200">
                                 {thresholdEntries.length === 0 ? (
                                   <p className="p-3 text-xs text-slate-400 italic">
                                     The model didn&apos;t report explicit numeric thresholds for this run &mdash; see the reasoning text above.
@@ -264,7 +264,7 @@ export function SwarmDiagnosticsTabs({
                 {pendingKeys.map((key) => {
                   const meta = specialistMeta[key];
                   return (
-                    <div key={key} className="rounded-3xl border border-slate-200 bg-white p-6 animate-pulse">
+                    <div key={key} className="rounded-[32px] border border-slate-200 bg-white p-4 animate-pulse">
                       <div className="flex items-center justify-between border-b border-slate-100 pb-3 mb-4">
                         <div className="flex items-center gap-2">
                           <SpecialistIcon type={key} className="h-5 w-5 text-slate-300" />
@@ -275,14 +275,14 @@ export function SwarmDiagnosticsTabs({
                           Analyzing&hellip;
                         </span>
                       </div>
-                      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+                      <div className="grid grid-cols-1 lg:grid-cols-12 gap-3">
                         <div className="lg:col-span-6 space-y-2">
                           <div className="h-3 w-32 rounded-full bg-slate-100" />
-                          <div className="h-16 rounded-2xl bg-slate-50 border border-slate-100" />
+                          <div className="h-16 rounded-[32px] bg-slate-50 border border-slate-100" />
                         </div>
                         <div className="lg:col-span-6 space-y-2">
                           <div className="h-3 w-40 rounded-full bg-slate-100" />
-                          <div className="h-16 rounded-2xl bg-slate-50 border border-slate-100" />
+                          <div className="h-16 rounded-[32px] bg-slate-50 border border-slate-100" />
                         </div>
                       </div>
                     </div>
@@ -296,7 +296,7 @@ export function SwarmDiagnosticsTabs({
         {activeTab === "logs" && (
           <div className="space-y-6 animate-fade-in">
             {specialists.length === 0 && !isLoading ? (
-              <div className="flex min-h-[300px] flex-col items-center justify-center gap-2 rounded-2xl border border-dashed border-slate-200 text-center p-8">
+              <div className="flex min-h-[300px] flex-col items-center justify-center gap-2 rounded-[32px] border border-dashed border-slate-200 text-center p-8">
                 <svg className="h-10 w-10 text-slate-300 mb-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z" />
                 </svg>
@@ -311,7 +311,7 @@ export function SwarmDiagnosticsTabs({
                   return (
                     <div
                       key={spec.specialist}
-                      className="rounded-3xl border border-slate-200 bg-white overflow-hidden transition-all duration-200 hover:border-slate-300 hover:shadow-md"
+                      className="rounded-[32px] border border-slate-200 bg-white overflow-hidden transition-all duration-200 hover:border-slate-300 hover:shadow-md"
                     >
                       <button
                         onClick={() => toggleLog(spec.specialist)}
@@ -350,7 +350,7 @@ export function SwarmDiagnosticsTabs({
                       </button>
 
                       {isExpanded && (
-                        <div className="p-6 space-y-6 bg-white animate-slide-down">
+                        <div className="p-4 space-y-6 bg-white animate-slide-down">
                           <div className="space-y-2">
                             <h5 className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Execution Steps Trace</h5>
                             <ol className="relative border-l border-slate-200 ml-2.5 space-y-4">
@@ -376,7 +376,7 @@ export function SwarmDiagnosticsTabs({
                                   {copiedCode === spec.specialist ? "✓ Copied" : "Copy Code"}
                                 </button>
                               </div>
-                              <pre className="rounded-2xl border border-slate-900 bg-slate-950 p-4 overflow-x-auto text-xs text-emerald-400/90 font-mono leading-relaxed shadow-inner max-h-[300px] scrollbar-thin">
+                              <pre className="rounded-[32px] border border-slate-900 bg-slate-950 p-4 overflow-x-auto text-xs text-emerald-400/90 font-mono leading-relaxed shadow-inner max-h-[300px] scrollbar-thin">
                                 <code>{spec.code_used}</code>
                               </pre>
                             </div>
@@ -390,7 +390,7 @@ export function SwarmDiagnosticsTabs({
                 {pendingKeys.map((key) => {
                   const meta = specialistMeta[key];
                   return (
-                    <div key={key} className="rounded-3xl border border-slate-200 bg-white overflow-hidden animate-pulse">
+                    <div key={key} className="rounded-[32px] border border-slate-200 bg-white overflow-hidden animate-pulse">
                       <div className="w-full flex items-center justify-between p-5 bg-slate-50/40 border-b border-slate-100">
                         <div className="flex items-center gap-3">
                           <SpecialistIcon type={key} className="h-5 w-5 text-slate-300" />
@@ -417,7 +417,7 @@ export function SwarmDiagnosticsTabs({
         {activeTab === "benchmark" && (
           <div className="space-y-6 animate-fade-in">
             {activeBenchmark ? (
-              <div className="rounded-3xl border border-slate-200 bg-white p-6 transition-all duration-200 hover:border-slate-300 hover:shadow-md">
+              <div className="rounded-[32px] border border-slate-200 bg-white p-4 transition-all duration-200 hover:border-slate-300 hover:shadow-md">
                 <div className="flex items-center justify-between border-b border-slate-100 pb-3 mb-6">
                   <div>
                     <h4 className="font-bold text-slate-800">Swarm Performance Diagnostics</h4>
@@ -428,16 +428,16 @@ export function SwarmDiagnosticsTabs({
                   </span>
                 </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
-                  <div className="rounded-2xl border border-slate-100 bg-slate-50/50 p-4 text-center">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-8">
+                  <div className="rounded-[32px] border border-slate-100 bg-slate-50/50 p-4 text-center">
                     <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Total Duration</span>
                     <p className="mt-1 text-2xl font-bold tracking-tight text-slate-800">{activeBenchmark.total_duration_ms} ms</p>
                   </div>
-                  <div className="rounded-2xl border border-slate-100 bg-slate-50/50 p-4 text-center">
+                  <div className="rounded-[32px] border border-slate-100 bg-slate-50/50 p-4 text-center">
                     <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Agents Executed</span>
                     <p className="mt-1 text-2xl font-bold tracking-tight text-slate-800">{activeBenchmark.agents_run}</p>
                   </div>
-                  <div className="rounded-2xl border border-slate-100 bg-slate-50/50 p-4 text-center">
+                  <div className="rounded-[32px] border border-slate-100 bg-slate-50/50 p-4 text-center">
                     <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">LLM API Calls</span>
                     <p className="mt-1 text-2xl font-bold tracking-tight text-slate-800">{activeBenchmark.llm_calls_made}</p>
                   </div>
@@ -496,7 +496,7 @@ export function SwarmDiagnosticsTabs({
                 )}
               </div>
             ) : (
-              <div className="flex min-h-[300px] flex-col items-center justify-center gap-2 rounded-2xl border border-dashed border-slate-200 text-center p-8">
+              <div className="flex min-h-[300px] flex-col items-center justify-center gap-2 rounded-[32px] border border-dashed border-slate-200 text-center p-8">
                 {isLoading ? (
                   <>
                     <span className="h-8 w-8 animate-spin rounded-full border-2 border-sky-500 border-t-transparent mb-1" />
