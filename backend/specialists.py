@@ -4,13 +4,16 @@ specialists.py
 Defines the 4 specialist agents: renal, neuropathy, retinal, cardiovascular.
 
 Each specialist has:
-  - a system_prompt (its "clinical lens")
-  - a build_user_prompt(patient) function describing the task to the LLM
-  - a fallback_code(patient) template used when no Fireworks API key is set,
-    so the pipeline is fully runnable/demoable without needing the API.
+  - a system_prompt (its "clinical lens" - describes WHAT to look for, but
+    deliberately does NOT hand the model pre-computed numeric cutoffs. The
+    model must state, and justify, whatever early-warning thresholds it
+    actually used, and those exact numbers are what get shown to the
+    clinician - not a fixed lookup table).
 
-When FIREWORKS_API_KEY is set, the real LLM writes its own analysis code,
-which then gets executed the same way the fallback code would be.
+There is NO rule-based/deterministic fallback. If no LLM backend is reachable,
+or the model's generated code still fails to execute after a few retries, the
+specialist honestly reports itself as unavailable instead of returning
+fabricated, hardcoded risk data. See run_specialist() -> _unavailable_result().
 """
 
 import time
@@ -22,11 +25,6 @@ from agent_core import has_llm, call_llm, extract_code_block, run_agent_code
 # ones used for cheap testing) are prone to mixing plain English into code blocks,
 # which causes SyntaxErrors when executed. This block exists specifically to stop
 # that failure mode with blunt, repeated, unambiguous formatting instructions.
-#
-# NOTE: `steps` is deliberately NOT added as a required output key here. Small/
-# cheap LLMs are already fragile about output format - adding a 4th required key
-# risks breaking JSON/code-block compliance on 7B-class models. Steps for LLM
-# runs are synthesized after the fact in Python instead (see run_specialist).
 STRICT_CODE_FORMAT_INSTRUCTIONS = """
 
 CRITICAL OUTPUT FORMAT RULES - follow these exactly:
@@ -39,46 +37,103 @@ CRITICAL OUTPUT FORMAT RULES - follow these exactly:
 4. Every line must be syntactically valid Python. If you are not fully sure a line is
    valid Python, do not include it - write simpler code instead.
 5. The code MUST end by assigning a dict to a variable named exactly `result` with
-   these exact keys: "risk_score" (float 0-1), "flag" (bool), "reasoning" (str).
+   these exact keys:
+     - "risk_score" (float 0-1)
+     - "flag" (bool) - this MUST be mechanically DERIVED from risk_score in code
+       (e.g. `flag = risk_score >= 0.4`), never a second, separately-reasoned
+       judgment call. flag and risk_score are only allowed to disagree if you
+       pick your own explicit numeric flag-threshold and use it consistently -
+       never eyeball flag independently of the number you just computed. This
+       is what stops the UI from showing a low risk_score with an "Anomaly
+       Flagged" label, or a high risk_score marked "Within Boundary".
+     - "reasoning" (str) - MUST name the specific numeric cutoff(s) you used and the
+       patient's actual value for each, e.g. "eGFR of 72.6 is below the 84.8 cutoff
+       I'm using for early renal stress". Do not describe a threshold in words only -
+       state the number.
+     - "thresholds_used" (dict[str, float]) - every numeric cutoff you actually applied
+       in your code, keyed by a short label, e.g. {"eGFR cutoff": 84.8}. This MUST
+       match the numbers named in `reasoning` exactly - never report a different
+       number here than what your code actually compared against.
 6. Do not import any modules. Do not read files or access the network. Only use the
    `patient` dict that is already available to you.
+7. NEVER assign risk_score by picking from a small set of preset numbers (e.g. an
+   if/else chain landing on 0.1/0.3/0.5/0.7/0.8/1.0). risk_score MUST be COMPUTED as
+   a continuous function of how far the patient's actual value sits from your
+   cutoff(s) - e.g. take the proportional gap between the value and the cutoff
+   (scaled against a clinically reasonable range for that metric) so two different
+   patients essentially never land on the same score. A genuinely computed score
+   will usually NOT be a clean multiple of 0.05 or 0.1 (e.g. 0.62 or 0.437, not 0.6
+   or 0.4) - if your formula keeps producing round numbers, it's too coarse; use the
+   actual proportional distance from the cutoff instead of a flat bump per band.
+7b. AVOID SATURATION: if you use a curve (e.g. a sigmoid/logistic function) to turn
+    the gap-from-cutoff into a 0-1 score, keep the steepness modest. A steep curve
+    collapses every patient who is even moderately past the cutoff to ~0.97-0.999,
+    which displays as a flat, meaningless "100%" once rounded - that's just as
+    uninformative as picking round numbers directly. A well-tuned curve should keep
+    even a patient whose value is far outside your cutoff somewhere around
+    0.80-0.95, not pinned at the ceiling, and should keep a patient far inside safe
+    range around 0.02-0.12, not pinned at the floor. If your gap/spread math would
+    push the exponent so large it saturates (e.g. |4 * gap| > ~3), widen the spread
+    or soften the multiplier so the curve keeps discriminating between "bad" and
+    "very bad" instead of treating both as maximum risk.
+7c. COMBINING MULTIPLE FACTORS: if you compute more than one sub-score (e.g. one
+    per lab value) before producing the final risk_score, sanity-check each
+    sub-score against its own gap before combining: a value that is CLEARLY past
+    its cutoff (e.g. the gap is a large multiple of the cutoff itself, like a UACR
+    of 250 against a cutoff of 100) must never end up contributing a near-zero
+    sub-score - if your formula produces that, your spread constant for that
+    specific metric is miscalibrated; fix the spread, don't let the bad sub-score
+    through. When combining, prefer taking the maximum of the sub-scores (or a
+    weighted average where every clearly-abnormal sub-score keeps real weight) -
+    never combine in a way (like a plain average diluted by one broken near-zero
+    term) that lets one mis-scaled sub-score silently cancel out a real signal
+    from another. If your `reasoning` text names a value as concerning, the final
+    `risk_score` must reflect that - don't describe a factor as abnormal and then
+    report a combined score that quietly ignores it.
+8. Write `result` as ONE single dict literal - every required key must appear between
+   the opening `{` and the one closing `}`. Do NOT close the dict early and then keep
+   writing keys as separate bare lines. This is WRONG and will crash with a syntax
+   error:
+       result = {
+           "risk_score": risk_score,
+       }
+       "flag": flag,
+       "reasoning": reasoning,
+   All keys - "risk_score", "flag", "reasoning", "thresholds_used" - belong inside the
+   SAME braces, before the single closing `}`.
 
-Example of the ONLY acceptable response format:
+Example of the ONLY acceptable response format (illustrative structure only - do
+NOT reuse this specific metric, cutoff, or scaling range; decide your own for the
+domain you were asked about). Note how risk_score is COMPUTED from the proportional
+gap to the cutoff with a MODEST curve steepness (not chosen from a preset list, and
+not so steep it saturates to a flat 100%/0%) - this is what keeps two different
+patients from landing on the same round, or maxed-out, score:
 ```python
-egfr = patient["egfr"]
-risk_score = 0.8 if egfr < 84.8 else 0.1
-result = {"risk_score": risk_score, "flag": risk_score >= 0.4, "reasoning": "eGFR is low"}
+some_value = patient["some_field"]
+cutoff = 42.0
+# `spread` is the range over which risk climbs from ~0 to ~1 past the cutoff -
+# pick a clinically reasonable spread for this metric, not a fixed constant.
+spread = 20.0
+gap = (some_value - cutoff) / spread
+# Steepness of 1.6-2.2 keeps even a patient far past cutoff in the ~0.85-0.95
+# range instead of pinning at ~1.0 - a steeper constant (like 4+) saturates too
+# fast and makes every bad patient look identically "maximum risk".
+risk_score = 1 / (1 + 2.71828 ** (-1.8 * gap))
+result = {
+    "risk_score": risk_score,
+    "flag": risk_score >= 0.4,
+    "reasoning": f"Value {some_value} vs the {cutoff} early-warning cutoff gives a computed risk of {risk_score:.3f}.",
+    "thresholds_used": {"some_field cutoff": cutoff},
+}
 ```
 """
 
 
 # ---------------------------------------------------------------------------
-# THRESHOLDS - single source of truth. These same values are referenced in
-# each specialist's system prompt text, its fallback code, and its returned
-# thresholds_used dict, so they're defined once here instead of drifting out
-# of sync across three copies.
-# ---------------------------------------------------------------------------
-RENAL_EGFR_CUTOFF = 84.8
-RENAL_UACR_CUTOFF = 15.5
-RENAL_CREATININE_CUTOFF = 1.1
-
-NEUROPATHY_YEARS_CUTOFF = 10
-NEUROPATHY_A1C_CUTOFF = 6.8
-NEUROPATHY_COMPOUND_YEARS_CUTOFF = 15
-
-RETINAL_BP_CUTOFF = 130
-RETINAL_YEARS_CUTOFF = 10
-RETINAL_COMPOUND_BP_CUTOFF = 135
-RETINAL_COMPOUND_YEARS_CUTOFF = 12
-
-CARDIO_LDL_CUTOFF = 130
-CARDIO_HDL_CUTOFF = 40
-CARDIO_TRIG_CUTOFF = 150
-
-
-# ---------------------------------------------------------------------------
-# FIELD LISTS - which patient dict keys each specialist actually reads.
-# Used to build the `input_labs` subset returned to the frontend.
+# FIELD LISTS - which patient dict keys each specialist actually reads. This
+# is data-routing plumbing (which columns get shown to which agent), not a
+# clinical judgment call, so it isn't "hardcoded reasoning" in the sense this
+# rewrite is about - no thresholds or scores live here.
 # ---------------------------------------------------------------------------
 RENAL_FIELDS = ["egfr", "uacr_mg_g", "creatinine_mg_dl"]
 NEUROPATHY_FIELDS = ["years_with_diabetes", "a1c_percent"]
@@ -87,162 +142,48 @@ CARDIO_FIELDS = ["ldl_mg_dl", "hdl_mg_dl", "triglycerides_mg_dl"]
 
 
 # ---------------------------------------------------------------------------
-# RENAL SPECIALIST
+# SYSTEM PROMPTS - describe the clinical domain and what to look for, but
+# leave the actual numeric early-warning cutoffs to the model's own clinical
+# knowledge. It must show its work: name the cutoff, name the patient value,
+# and report both back in `thresholds_used` so the frontend renders exactly
+# what the model actually reasoned with, not a fixed reference table.
 # ---------------------------------------------------------------------------
-RENAL_SYSTEM_PROMPT = f"""You are a renal (kidney) specialist agent analyzing diabetic patient
-lab data to catch early kidney stress BEFORE standard diagnostic thresholds are hit.
-Key early-warning cutoffs you know: eGFR below ~{RENAL_EGFR_CUTOFF} mL/min/1.73m^2 (well above the
-standard 60 'disease' cutoff) and UACR above ~{RENAL_UACR_CUTOFF} mg/g (below the classic 30 'abnormal'
-threshold) both indicate early risk. Write Python code that reads the `patient` dict and
-sets a `result` dict: {{"risk_score": float 0-1, "flag": bool, "reasoning": str}}.""" + STRICT_CODE_FORMAT_INSTRUCTIONS
+RENAL_SYSTEM_PROMPT = """You are a renal (kidney) specialist agent analyzing diabetic patient
+lab data to catch early kidney stress BEFORE standard diagnostic thresholds are hit (i.e. your
+cutoffs should be more conservative/sensitive than standard disease-stage cutoffs like eGFR 60
+or UACR 30, since the goal is catching risk early). Use your own clinical knowledge to decide
+the specific numeric early-warning cutoffs for eGFR and UACR (and creatinine if relevant) for
+THIS patient, and apply them consistently. Write Python code that reads the `patient` dict and
+sets a `result` dict as instructed below.""" + STRICT_CODE_FORMAT_INSTRUCTIONS
 
-def renal_fallback_code(patient):
-    intro_step = f"Read eGFR ({patient['egfr']}), UACR ({patient['uacr_mg_g']}), creatinine ({patient['creatinine_mg_dl']})"
-    return f"""
-egfr = {patient['egfr']}
-uacr = {patient['uacr_mg_g']}
-creatinine = {patient['creatinine_mg_dl']}
+NEUROPATHY_SYSTEM_PROMPT = """You are a diabetic neuropathy risk specialist agent. Longer
+diabetes duration and higher A1c are the strongest available predictors of nerve damage risk in
+single-visit survey data (true day-to-day glucose variability isn't available here). Use your
+own clinical knowledge to decide specific early-warning numeric cutoffs for years-with-diabetes
+and A1c (early-warning means more sensitive than standard "poor control" cutoffs like A1c 7.0),
+and apply them consistently. Write Python code that reads the `patient` dict and sets a `result`
+dict as instructed below.""" + STRICT_CODE_FORMAT_INSTRUCTIONS
 
-risk_score = 0.0
-reasons = []
-if egfr < {RENAL_EGFR_CUTOFF}:
-    risk_score += 0.5
-    reasons.append(f"eGFR {{egfr}} is below the early-risk cutoff of {RENAL_EGFR_CUTOFF}")
-if uacr > {RENAL_UACR_CUTOFF}:
-    risk_score += 0.4
-    reasons.append(f"UACR {{uacr}} mg/g is above the early-risk cutoff of {RENAL_UACR_CUTOFF}")
-if creatinine > {RENAL_CREATININE_CUTOFF}:
-    risk_score += 0.1
-    reasons.append(f"Creatinine {{creatinine}} mg/dL is at the upper edge of normal")
+RETINAL_SYSTEM_PROMPT = """You are a diabetic retinopathy risk specialist agent. Elevated blood
+pressure combined with longer diabetes duration is a strong predictor of retinal damage risk,
+independent of glucose control. Use your own clinical knowledge to decide specific early-warning
+numeric cutoffs for systolic BP and years-with-diabetes, and apply them consistently. Write
+Python code that reads the `patient` dict and sets a `result` dict as instructed below.""" + STRICT_CODE_FORMAT_INSTRUCTIONS
 
-risk_score = min(risk_score, 1.0)
-result = {{
-    "risk_score": risk_score,
-    "flag": risk_score >= 0.4,
-    "reasoning": "; ".join(reasons) if reasons else "No early renal risk markers detected.",
-    "steps": ([{intro_step!r}] + reasons) if reasons else [{intro_step!r}, "No cutoffs exceeded"],
-}}
-"""
-
-
-# ---------------------------------------------------------------------------
-# NEUROPATHY SPECIALIST
-# ---------------------------------------------------------------------------
-NEUROPATHY_SYSTEM_PROMPT = f"""You are a diabetic neuropathy risk specialist agent. You know that
-longer diabetes duration and higher A1c are the strongest available predictors of nerve damage
-risk in single-visit survey data (true day-to-day glucose variability isn't available here).
-Write Python code that reads the `patient` dict and sets a `result` dict:
-{{"risk_score": float 0-1, "flag": bool, "reasoning": str}}.""" + STRICT_CODE_FORMAT_INSTRUCTIONS
-
-def neuropathy_fallback_code(patient):
-    intro_step = f"Read years with diabetes ({patient['years_with_diabetes']}) and A1c ({patient['a1c_percent']})"
-    return f"""
-years = {patient['years_with_diabetes']}
-a1c = {patient['a1c_percent']}
-
-risk_score = 0.0
-reasons = []
-if years > {NEUROPATHY_YEARS_CUTOFF}:
-    risk_score += 0.5
-    reasons.append(f"{{years:.0f}} years with diabetes increases cumulative nerve damage risk")
-if a1c > {NEUROPATHY_A1C_CUTOFF}:
-    risk_score += 0.3
-    reasons.append(f"A1c {{a1c}}% is at the higher end of the 'controlled' range")
-if years > {NEUROPATHY_COMPOUND_YEARS_CUTOFF} and a1c > {NEUROPATHY_A1C_CUTOFF}:
-    risk_score += 0.2
-    reasons.append("Long duration combined with A1c elevation is a compounding risk factor")
-
-risk_score = min(risk_score, 1.0)
-result = {{
-    "risk_score": risk_score,
-    "flag": risk_score >= 0.4,
-    "reasoning": "; ".join(reasons) if reasons else "No early neuropathy risk markers detected.",
-    "steps": ([{intro_step!r}] + reasons) if reasons else [{intro_step!r}, "No cutoffs exceeded"],
-}}
-"""
-
-
-# ---------------------------------------------------------------------------
-# RETINAL SPECIALIST
-# ---------------------------------------------------------------------------
-RETINAL_SYSTEM_PROMPT = f"""You are a diabetic retinopathy risk specialist agent. You know that
-elevated blood pressure combined with longer diabetes duration is a strong predictor of retinal
-damage risk, independent of glucose control. Write Python code that reads the `patient` dict
-and sets a `result` dict: {{"risk_score": float 0-1, "flag": bool, "reasoning": str}}.""" + STRICT_CODE_FORMAT_INSTRUCTIONS
-
-def retinal_fallback_code(patient):
-    intro_step = f"Read systolic BP ({patient['systolic_bp']}) and years with diabetes ({patient['years_with_diabetes']})"
-    return f"""
-bp = {patient['systolic_bp']}
-years = {patient['years_with_diabetes']}
-
-risk_score = 0.0
-reasons = []
-if bp > {RETINAL_BP_CUTOFF}:
-    risk_score += 0.5
-    reasons.append(f"Systolic BP of {{bp:.0f}} is elevated, a known retinopathy risk factor")
-if years > {RETINAL_YEARS_CUTOFF}:
-    risk_score += 0.3
-    reasons.append(f"{{years:.0f}} years with diabetes increases retinal risk independent of glucose control")
-if bp > {RETINAL_COMPOUND_BP_CUTOFF} and years > {RETINAL_COMPOUND_YEARS_CUTOFF}:
-    risk_score += 0.1
-    reasons.append("High BP plus long duration is a compounding risk pattern")
-
-risk_score = min(risk_score, 1.0)
-result = {{
-    "risk_score": risk_score,
-    "flag": risk_score >= 0.4,
-    "reasoning": "; ".join(reasons) if reasons else "No early retinal risk markers detected.",
-    "steps": ([{intro_step!r}] + reasons) if reasons else [{intro_step!r}, "No cutoffs exceeded"],
-}}
-"""
-
-
-# ---------------------------------------------------------------------------
-# CARDIOVASCULAR SPECIALIST
-# ---------------------------------------------------------------------------
-CARDIO_SYSTEM_PROMPT = f"""You are a cardiovascular risk specialist agent analyzing a diabetic
+CARDIO_SYSTEM_PROMPT = """You are a cardiovascular risk specialist agent analyzing a diabetic
 patient's lipid panel. Diabetics face elevated cardiovascular risk that a normal A1c does not
-capture. Write Python code that reads the `patient` dict and sets a `result` dict:
-{{"risk_score": float 0-1, "flag": bool, "reasoning": str}}.""" + STRICT_CODE_FORMAT_INSTRUCTIONS
-
-def cardio_fallback_code(patient):
-    intro_step = f"Read LDL ({patient['ldl_mg_dl']}), HDL ({patient['hdl_mg_dl']}), triglycerides ({patient['triglycerides_mg_dl']})"
-    return f"""
-ldl = {patient['ldl_mg_dl']}
-hdl = {patient['hdl_mg_dl']}
-trig = {patient['triglycerides_mg_dl']}
-
-risk_score = 0.0
-reasons = []
-if ldl > {CARDIO_LDL_CUTOFF}:
-    risk_score += 0.4
-    reasons.append(f"LDL of {{ldl}} mg/dL is elevated")
-if hdl < {CARDIO_HDL_CUTOFF}:
-    risk_score += 0.3
-    reasons.append(f"HDL of {{hdl}} mg/dL is low (protective cholesterol too low)")
-if trig > {CARDIO_TRIG_CUTOFF}:
-    risk_score += 0.3
-    reasons.append(f"Triglycerides of {{trig}} mg/dL are elevated")
-
-risk_score = min(risk_score, 1.0)
-result = {{
-    "risk_score": risk_score,
-    "flag": risk_score >= 0.4,
-    "reasoning": "; ".join(reasons) if reasons else "No early cardiovascular risk markers detected.",
-    "steps": ([{intro_step!r}] + reasons) if reasons else [{intro_step!r}, "No cutoffs exceeded"],
-}}
-"""
+capture. Use your own clinical knowledge to decide specific early-warning numeric cutoffs for
+LDL, HDL, and triglycerides, and apply them consistently. Write Python code that reads the
+`patient` dict and sets a `result` dict as instructed below.""" + STRICT_CODE_FORMAT_INSTRUCTIONS
 
 
 SPECIALISTS = {
-    "renal": (RENAL_SYSTEM_PROMPT, renal_fallback_code),
-    "neuropathy": (NEUROPATHY_SYSTEM_PROMPT, neuropathy_fallback_code),
-    "retinal": (RETINAL_SYSTEM_PROMPT, retinal_fallback_code),
-    "cardiovascular": (CARDIO_SYSTEM_PROMPT, cardio_fallback_code),
+    "renal": RENAL_SYSTEM_PROMPT,
+    "neuropathy": NEUROPATHY_SYSTEM_PROMPT,
+    "retinal": RETINAL_SYSTEM_PROMPT,
+    "cardiovascular": CARDIO_SYSTEM_PROMPT,
 }
 
-# Per-specialist input fields and thresholds, keyed the same as SPECIALISTS.
 SPECIALIST_FIELDS = {
     "renal": RENAL_FIELDS,
     "neuropathy": NEUROPATHY_FIELDS,
@@ -250,110 +191,105 @@ SPECIALIST_FIELDS = {
     "cardiovascular": CARDIO_FIELDS,
 }
 
-SPECIALIST_THRESHOLDS = {
-    "renal": {
-        "egfr_cutoff": RENAL_EGFR_CUTOFF,
-        "uacr_cutoff": RENAL_UACR_CUTOFF,
-        "creatinine_cutoff": RENAL_CREATININE_CUTOFF,
-    },
-    "neuropathy": {
-        "years_cutoff": NEUROPATHY_YEARS_CUTOFF,
-        "a1c_cutoff": NEUROPATHY_A1C_CUTOFF,
-        "compound_years_cutoff": NEUROPATHY_COMPOUND_YEARS_CUTOFF,
-    },
-    "retinal": {
-        "bp_cutoff": RETINAL_BP_CUTOFF,
-        "years_cutoff": RETINAL_YEARS_CUTOFF,
-        "compound_bp_cutoff": RETINAL_COMPOUND_BP_CUTOFF,
-        "compound_years_cutoff": RETINAL_COMPOUND_YEARS_CUTOFF,
-    },
-    "cardiovascular": {
-        "ldl_cutoff": CARDIO_LDL_CUTOFF,
-        "hdl_cutoff": CARDIO_HDL_CUTOFF,
-        "triglycerides_cutoff": CARDIO_TRIG_CUTOFF,
-    },
-}
+
+def _unavailable_result(name: str, start: float, input_labs: dict, reason: str) -> dict:
+    """Honest 'no analysis happened' result. No risk_score/flag are fabricated -
+    they're explicitly None so the frontend can't accidentally render a fake
+    0% (which would read as a clean bill of health) or any other made-up number."""
+    duration_ms = int((time.perf_counter() - start) * 1000)
+    return {
+        "specialist": name,
+        "used_llm": False,
+        "available": False,
+        "risk_score": None,
+        "flag": None,
+        "reasoning": f"Analysis unavailable: {reason}",
+        "thresholds_used": {},
+        "steps": [f"No analysis performed - {reason}"],
+        "duration_ms": duration_ms,
+        "input_labs": input_labs,
+        "code_used": None,
+    }
 
 
 def run_specialist(name: str, patient: dict) -> dict:
-    """Runs one specialist agent on one patient. Uses real LLM if reachable, else fallback -
-    and HONESTLY labels which one actually happened, instead of silently mislabeling.
-    Retries once with error feedback if the LLM's code fails to execute, before
-    giving up and using the rule-based fallback.
-
-    Returned dict includes duration_ms, input_labs, thresholds_used, steps, and
-    code_used in addition to the original risk_score/flag/reasoning/used_llm keys,
-    so the frontend's Agent Logs / Analysis / Benchmark tabs have real data to show.
+    """Runs one specialist agent on one patient via a live LLM only. There is no
+    rule-based fallback: if no LLM backend is reachable, or the model's code
+    still fails to execute after a few retries, the specialist is honestly
+    reported as unavailable rather than substituting hardcoded logic.
     """
-    system_prompt, fallback_fn = SPECIALISTS[name]
+    system_prompt = SPECIALISTS[name]
     start = time.perf_counter()
-    code_used = None
+    input_labs = {k: patient[k] for k in SPECIALIST_FIELDS[name] if k in patient}
 
-    if has_llm():
-        user_prompt = (
-            f"Analyze this patient's data for {name} risk: {patient}\n"
-            f"Respond ONLY with a python code block that sets a `result` dict as instructed."
+    if not has_llm():
+        return _unavailable_result(
+            name, start, input_labs,
+            reason="no LLM backend (Fireworks/Featherless) is currently reachable.",
         )
-        try:
-            raw = call_llm(system_prompt, user_prompt)
+
+    user_prompt = (
+        f"Analyze this patient's data for {name} risk: {patient}\n"
+        f"Respond ONLY with a python code block that sets a `result` dict as instructed."
+    )
+
+    # Small/cheap models occasionally mangle the required dict format (e.g.
+    # closing `result = {` early and continuing keys as bare, un-braced lines)
+    # rather than getting the underlying clinical logic wrong, so one retry
+    # with the real error shown back to it gives it a chance to self-correct
+    # before honestly reporting the specialist as unavailable. Deliberately
+    # kept at 2 total attempts, not more: all 4 specialists run in parallel,
+    # so every extra attempt multiplies concurrent calls against Featherless's
+    # rate limit - a 3rd attempt here previously caused OTHER specialists to
+    # start failing with connection/rate errors instead of fixing this one.
+    MAX_ATTEMPTS = 2
+    try:
+        prompt = user_prompt
+        output = None
+        code = None
+        last_reasoning = None
+        for attempt in range(MAX_ATTEMPTS):
+            raw = call_llm(system_prompt, prompt)
             code = extract_code_block(raw)
             output = run_agent_code(code, patient)
+            is_error = output["reasoning"].startswith("[EXECUTION ERROR]") or output["reasoning"].startswith("[ERROR]")
+            if not is_error:
+                break
+            last_reasoning = output["reasoning"]
+            prompt = (
+                f"{user_prompt}\n\nYour previous attempt failed with this error:\n"
+                f"{last_reasoning}\n"
+                f"Fix it. Remember: output ONLY a valid python code block, no other text."
+            )
+        else:
+            return _unavailable_result(
+                name, start, input_labs,
+                reason=f"LLM-generated code failed {MAX_ATTEMPTS} times in a row: {last_reasoning}",
+            )
+    except Exception as e:
+        return _unavailable_result(name, start, input_labs, reason=f"LLM call failed: {e}")
 
-            # If the generated code failed to execute, give the model ONE more
-            # chance with the actual error shown to it, before falling back.
-            if output["reasoning"].startswith("[EXECUTION ERROR]") or output["reasoning"].startswith("[ERROR]"):
-                retry_prompt = (
-                    f"{user_prompt}\n\nYour previous attempt failed with this error:\n"
-                    f"{output['reasoning']}\n"
-                    f"Fix it. Remember: output ONLY a valid python code block, no other text."
-                )
-                raw_retry = call_llm(system_prompt, retry_prompt)
-                code_retry = extract_code_block(raw_retry)
-                output_retry = run_agent_code(code_retry, patient)
-                if not (output_retry["reasoning"].startswith("[EXECUTION ERROR]") or output_retry["reasoning"].startswith("[ERROR]")):
-                    output = output_retry  # retry succeeded, use it
-                    code = code_retry
-                else:
-                    raise RuntimeError("LLM code failed twice, falling back")
-
-            used_llm = True
-            code_used = code
-
-            # LLM writes arbitrary code, so we can't introspect its reasoning at
-            # the same granularity as the fallback path. Synthesize a real (not
-            # generic) 2-line trace from the provider name and actual result,
-            # unless the LLM's own code happened to set "steps" already.
-            if not output.get("steps"):
-                from agent_core import get_llm_status
-                provider = get_llm_status()
-                output["steps"] = [
-                    f"LLM ({provider}) generated custom risk-scoring code",
-                    f"Executed in sandbox -> risk_score={output.get('risk_score', 0.0):.2f}",
-                ]
-        except Exception:
-            # LLM was reachable but its code didn't work even after a retry -
-            # fall back, and say so honestly rather than pretending it was live.
-            code = fallback_fn(patient)
-            output = run_agent_code(code, patient)
-            used_llm = False
-            code_used = code
-    else:
-        code = fallback_fn(patient)
-        output = run_agent_code(code, patient)
-        used_llm = False
-        code_used = code
+    # LLM writes arbitrary code, so we can't introspect its reasoning at the
+    # same granularity a rule-based system would. Synthesize a real (not
+    # generic) trace from the provider name and actual result, unless the
+    # LLM's own code happened to set "steps" already.
+    if not output.get("steps"):
+        from agent_core import get_llm_status
+        provider = get_llm_status()
+        output["steps"] = [
+            f"LLM ({provider}) generated custom risk-scoring code",
+            f"Executed in sandbox -> risk_score={output.get('risk_score', 0.0):.2f}",
+        ]
 
     duration_ms = int((time.perf_counter() - start) * 1000)
 
     output["specialist"] = name
-    output["used_llm"] = used_llm
-    if not used_llm:
-        output["reasoning"] = f"[LLM OFFLINE - rule-based fallback used] {output['reasoning']}"
-
+    output["used_llm"] = True
+    output["available"] = True
     output["duration_ms"] = duration_ms
-    output["input_labs"] = {k: patient[k] for k in SPECIALIST_FIELDS[name] if k in patient}
-    output["thresholds_used"] = SPECIALIST_THRESHOLDS[name]
-    output["code_used"] = code_used
+    output["input_labs"] = input_labs
+    output["code_used"] = code
+    output.setdefault("thresholds_used", {})
     output.setdefault("steps", [])
 
     return output

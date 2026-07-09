@@ -104,7 +104,7 @@ def run_patient(app, patient_row: dict, verbose=True):
     if verbose:
         from agent_core import get_llm_status
         provider = get_llm_status()
-        mode = f"LIVE LLM AGENTS ({provider})" if provider else "LLM OFFLINE - rule-based fallback in use"
+        mode = f"LIVE LLM AGENTS ({provider})" if provider else "LLM OFFLINE - no fallback, analysis will be reported unavailable"
         print(f"\n{'='*70}")
         print(f"Patient {patient_row['patient_id']}  |  Mode: {mode}  |  Graph: LangGraph")
         print(f"A1c: {patient_row['a1c_percent']}%  |  Age: {patient_row['age']}  |  "
@@ -116,6 +116,9 @@ def run_patient(app, patient_row: dict, verbose=True):
     if verbose:
         for name in ["renal", "neuropathy", "retinal", "cardiovascular"]:
             result = final_state[f"{name}_result"]
+            if result.get("available", True) is False:
+                print(f"[{name.upper():15s}] UNAVAILABLE  -> {result['reasoning']}")
+                continue
             flag_marker = "[!] FLAGGED" if result["flag"] else "    clear"
             print(f"[{name.upper():15s}] risk={result['risk_score']:.2f}  {flag_marker}")
             print(f"                  -> {result['reasoning']}")

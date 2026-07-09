@@ -17,6 +17,7 @@ public GitHub repo. Only .env.example (with blank values) should be committed.
 """
 
 import os
+import random
 import time
 import traceback
 
@@ -61,16 +62,68 @@ def get_llm_call_count() -> int:
     return _LLM_CALL_COUNTER["count"]
 
 
-def call_fireworks(system_prompt: str, user_prompt: str) -> str:
+# Sampling temperature for the risk-scoring calls. This is a model-sampling
+# knob, not a clinical value - it doesn't hardcode any score/cutoff, it just
+# controls how deterministic vs. random the model is when generating its
+# scoring code. Left at the provider default (unset) this was landing close
+# to 1.0 on both providers, which is tuned for creative writing variety, not
+# for a task where the SAME patient labs should reason to close to the SAME
+# score every run. Low-but-not-zero keeps the model from being fully greedy
+# (still lets it explore reasonable cutoff choices) while cutting a lot of
+# run-to-run noise in the computed risk_score/flag.
+SCORING_TEMPERATURE = 0.2
+
+
+def _post_with_retry(url: str, headers: dict, json_body: dict, timeout: int = 30) -> "requests.Response":
+    """POST with short backoff-and-retry, but ONLY for transient/provider-side
+    conditions (HTTP 429 rate limiting, or a connection/timeout error) - never
+    for a real 4xx/5xx from the provider actually rejecting the request body.
+
+    Why this exists: all 4 specialists fire their LLM calls in parallel (see
+    run_pipeline.py's fan-out), so on Featherless's free/test tier it's common
+    for exactly one of the 4 simultaneous requests to get hit with a 429 while
+    the other 3 succeed - which looks like a totally random single specialist
+    going "Unavailable" on any given run, even though nothing about that
+    specialist or its prompt was actually wrong. Before this fix, a 429 was
+    treated identically to the model writing broken Python: it just burned one
+    of specialists.py's 2 code-quality retry attempts and moved on. Retrying
+    the plain network call here (with a short backoff so we don't hammer
+    straight back into the same rate limit) fixes the actual transient cause
+    instead of spending a code-quality retry on a problem that had nothing to
+    do with code quality.
+    """
     import requests
+    last_exc: Exception | None = None
+    for attempt in range(4):
+        try:
+            resp = requests.post(url, headers=headers, json=json_body, timeout=timeout)
+        except requests.exceptions.RequestException as e:
+            last_exc = e
+            time.sleep(0.6 * (attempt + 1))
+            continue
+        if resp.status_code == 429:
+            last_exc = RuntimeError(f"Rate limited (429) by provider (attempt {attempt + 1}/4)")
+            # Free/test-tier rate limits are commonly per-minute, not
+            # per-second, so a sub-second retry just hits the same wall
+            # again - back off further each attempt (up to ~6s on the last
+            # try) to actually clear the window instead of retrying inside it.
+            time.sleep(1.5 * (attempt + 1))
+            continue
+        resp.raise_for_status()
+        return resp
+    raise last_exc if last_exc else RuntimeError("Request failed after retries.")
+
+
+def call_fireworks(system_prompt: str, user_prompt: str) -> str:
     if not FIREWORKS_API_KEY:
         raise RuntimeError("FIREWORKS_API_KEY not set.")
-    resp = requests.post(
+    resp = _post_with_retry(
         FIREWORKS_URL,
         headers={"Authorization": f"Bearer {FIREWORKS_API_KEY}", "Content-Type": "application/json"},
-        json={
+        json_body={
             "model": FIREWORKS_MODEL,
-            "max_tokens": 800,
+            "max_tokens": 1000,
+            "temperature": SCORING_TEMPERATURE,
             "messages": [
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": user_prompt},
@@ -78,20 +131,19 @@ def call_fireworks(system_prompt: str, user_prompt: str) -> str:
         },
         timeout=30,
     )
-    resp.raise_for_status()
     return resp.json()["choices"][0]["message"]["content"]
 
 
 def call_featherless(system_prompt: str, user_prompt: str) -> str:
-    import requests
     if not FEATHERLESS_API_KEY:
         raise RuntimeError("FEATHERLESS_API_KEY not set.")
-    resp = requests.post(
+    resp = _post_with_retry(
         FEATHERLESS_URL,
         headers={"Authorization": f"Bearer {FEATHERLESS_API_KEY}", "Content-Type": "application/json"},
-        json={
+        json_body={
             "model": FEATHERLESS_MODEL,
-            "max_tokens": 800,
+            "max_tokens": 1000,
+            "temperature": SCORING_TEMPERATURE,
             "messages": [
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": user_prompt},
@@ -99,7 +151,6 @@ def call_featherless(system_prompt: str, user_prompt: str) -> str:
         },
         timeout=30,
     )
-    resp.raise_for_status()
     return resp.json()["choices"][0]["message"]["content"]
 
 
@@ -147,10 +198,21 @@ def call_llm(system_prompt: str, user_prompt: str) -> str:
     Calls whichever backend get_llm_status() found working. Raises a clear
     RuntimeError if none are reachable - callers should catch this and report
     'LLM OFFLINE' honestly rather than silently using a different code path.
+
+    A small random jitter is inserted before dispatching. All 4 specialists
+    call this at effectively the same instant (LangGraph fans them out in
+    parallel), so without any spacing, 4 requests land in the provider's
+    rate-limit window in the same fraction of a second - which is exactly
+    what was causing a random single specialist to eat a 429. Spreading the
+    actual dispatch times out over ~0-1.2s costs a trivial amount of wall
+    time but meaningfully reduces how often multiple requests collide in the
+    same rate-limit window in the first place.
     """
     provider = get_llm_status()
     if provider is None:
         raise RuntimeError("LLM_OFFLINE: no configured backend (Fireworks/Featherless) is reachable.")
+
+    time.sleep(random.uniform(0, 1.2))
 
     fn = dict(_PROVIDERS)[provider]
     _LLM_CALL_COUNTER["count"] += 1
