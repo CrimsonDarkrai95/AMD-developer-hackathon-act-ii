@@ -1,10 +1,17 @@
 """
 agent_core.py
 --------------
-Handles calling an LLM agent (Fireworks AI or Featherless AI) and executing
-whatever Python analysis code the agent writes, in a controlled namespace.
+Handles calling an LLM agent and executing whatever Python analysis code the
+agent writes, in a controlled namespace.
 
-Priority order: FIREWORKS_API_KEY -> FEATHERLESS_API_KEY -> offline.
+HYBRID ARCHITECTURE NOTE: this backend's LIVE inference path is Featherless AI.
+Featherless is the primary/required provider for the running demo (Track 3's
+AMD-compute requirement is satisfied separately by the offline notebook in
+amd_compute/, not by this file — see amd_compute/README.md). Fireworks is kept
+only as an optional secondary fallback in case Featherless is briefly
+unreachable during a live demo; it is not part of the intended architecture.
+
+Priority order: FEATHERLESS_API_KEY -> FIREWORKS_API_KEY (fallback only) -> offline.
 
 Status is checked by actually testing connectivity once per process (cached),
 never by just seeing if a key/URL string is configured - so the reported
@@ -31,11 +38,22 @@ FIREWORKS_API_KEY = os.environ.get("FIREWORKS_API_KEY", "")
 FIREWORKS_MODEL = os.environ.get("FIREWORKS_MODEL", "accounts/fireworks/models/llama-v3p1-70b-instruct")
 FIREWORKS_URL = "https://api.fireworks.ai/inference/v1/chat/completions"
 
-# Featherless AI - used for testing now, plan is to switch FEATHERLESS_MODEL to a
-# Gemma model ID the day before submission.
+# Featherless AI - the primary, required LLM provider for the live backend.
+# Pulled from the FEATHERLESS_API_KEY environment variable (set it in
+# backend/.env, which is gitignored - see backend/.env.example for the
+# expected keys).
 FEATHERLESS_API_KEY = os.environ.get("FEATHERLESS_API_KEY", "")
 FEATHERLESS_MODEL = os.environ.get("FEATHERLESS_MODEL", "Qwen/Qwen2.5-7B-Instruct")
 FEATHERLESS_URL = "https://api.featherless.ai/v1/chat/completions"
+
+# Featherless-on-AMD relay: when set, the actual outbound Featherless call is
+# dispatched from amd_compute/featherless_notebook_server.ipynb running on the
+# AMD Developer Cloud instance, instead of straight from this backend process.
+# Start that notebook's last cell first, then point this at it (see
+# backend/.env.example). If unset/unreachable, call_featherless() transparently
+# falls back to calling Featherless directly so the backend still works when
+# the notebook isn't running (e.g. local dev, or the notebook kernel died).
+NOTEBOOK_FEATHERLESS_URL = os.environ.get("NOTEBOOK_FEATHERLESS_URL", "")
 
 # Cache connectivity checks so we don't ping the provider on every single
 # specialist call. Success is cached for a long time (a working provider
@@ -135,8 +153,42 @@ def call_fireworks(system_prompt: str, user_prompt: str) -> str:
 
 
 def call_featherless(system_prompt: str, user_prompt: str) -> str:
+    """Calls Featherless. If NOTEBOOK_FEATHERLESS_URL is configured, the request
+    goes to the local relay exposed by amd_compute/featherless_notebook_server.ipynb
+    (running on the AMD Developer Cloud instance) instead of api.featherless.ai
+    directly - that notebook process is what actually dispatches the outbound
+    call to Featherless. If the relay isn't set or isn't reachable, this falls
+    back to calling Featherless directly so the backend keeps working without
+    the notebook running.
+    """
     if not FEATHERLESS_API_KEY:
         raise RuntimeError("FEATHERLESS_API_KEY not set.")
+
+    messages = [
+        {"role": "system", "content": system_prompt},
+        {"role": "user", "content": user_prompt},
+    ]
+
+    if NOTEBOOK_FEATHERLESS_URL:
+        try:
+            resp = _post_with_retry(
+                NOTEBOOK_FEATHERLESS_URL,
+                headers={"Content-Type": "application/json"},
+                json_body={
+                    "model": FEATHERLESS_MODEL,
+                    "max_tokens": 1000,
+                    "temperature": SCORING_TEMPERATURE,
+                    "messages": messages,
+                },
+                timeout=30,
+            )
+            return resp.json()["choices"][0]["message"]["content"]
+        except Exception:
+            # Notebook relay not up / kernel not running / network hiccup -
+            # fall through to calling Featherless directly rather than
+            # failing the whole specialist call.
+            pass
+
     resp = _post_with_retry(
         FEATHERLESS_URL,
         headers={"Authorization": f"Bearer {FEATHERLESS_API_KEY}", "Content-Type": "application/json"},
@@ -144,19 +196,19 @@ def call_featherless(system_prompt: str, user_prompt: str) -> str:
             "model": FEATHERLESS_MODEL,
             "max_tokens": 1000,
             "temperature": SCORING_TEMPERATURE,
-            "messages": [
-                {"role": "system", "content": system_prompt},
-                {"role": "user", "content": user_prompt},
-            ],
+            "messages": messages,
         },
         timeout=30,
     )
     return resp.json()["choices"][0]["message"]["content"]
 
 
+# Featherless first: it is the primary live-inference provider for this
+# project's hybrid architecture. Fireworks is kept as a secondary fallback
+# only, in case Featherless is briefly unreachable during a live demo.
 _PROVIDERS = [
-    ("fireworks", call_fireworks),
     ("featherless", call_featherless),
+    ("fireworks", call_fireworks),
 ]
 
 
