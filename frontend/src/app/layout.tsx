@@ -21,6 +21,7 @@ export default function RootLayout({
   return (
     <html lang="en" className={`${montserrat.variable} ${GeistMono.variable}`}>
       <head>
+        <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" />
         {/* Runs before paint so the theme is correct on first frame — no flash. */}
         <script
           dangerouslySetInnerHTML={{

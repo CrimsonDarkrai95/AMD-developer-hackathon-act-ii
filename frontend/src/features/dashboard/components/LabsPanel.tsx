@@ -1,24 +1,11 @@
+import { useState } from "react";
 import { Labs } from "@/types";
 import { StaggerContainer, StaggerItem } from "@/components/animations/Stagger";
 import { HoverScale } from "@/components/animations/HoverScale";
 
 interface LabRow { label: string; value: number; max: number; unit: string; decimals: number; normalLabel: string; }
 
-// `max` here is a DISPLAY/BAR-SCALE ceiling, not a clinical cutoff - it's what
-// the bar treats as "full width" and what shows after the "/" next to the
-// value. It was previously set right at (or just past) each metric's "good"
-// threshold, e.g. Creatinine max=1.3 sitting almost on top of the 1.1 "good"
-// cutoff - so a genuinely healthy 1.08 rendered as an ~83%-full bar, which
-// visually reads as "almost maxed out" even though the color correctly says
-// it's fine. Widened these to a realistic upper end of the reportable range
-// for each metric (not a new clinical claim, just more headroom on the bar),
-// so "good" values actually look like they're using a small fraction of the
-// bar instead of nearly filling it.
-//
-// HbA1c and Systolic BP were previously duplicated up in the page header
-// (PatientOverviewHeader) AND partially here (eGFR/UACR only) - two
-// differently-styled readouts of overlapping data. Consolidated: this panel
-// is now the single source of truth for every lab/vital, header included.
+
 function buildRows(labs: Labs, a1cPercent?: number | null): LabRow[] {
   const rows: LabRow[] = [];
   if (typeof a1cPercent === "number") {
@@ -38,10 +25,6 @@ function buildRows(labs: Labs, a1cPercent?: number | null): LabRow[] {
 
 type Severity = "good" | "moderate" | "high";
 
-// Mirrors the thresholds already used elsewhere in the dashboard (see
-// PatientOverviewHeader) for eGFR/UACR, plus standard clinical reference
-// ranges for the remaining panels — lets the bar color itself communicate
-// risk instead of making the reader parse every number.
 function getSeverity(label: string, value: number): Severity {
   switch (label) {
     case "HbA1c":
@@ -81,12 +64,7 @@ function getSeverity(label: string, value: number): Severity {
   }
 }
 
-// Cooler-toned severity palette: teal instead of emerald (adds a blue
-// undertone to "good"), yellow instead of amber (drops the orange cast),
-// and a deepened rose instead of the brighter rose-400/600 (reads as a
-// richer wine-red rather than a bright/neon pink-red). Keeps the same
-// red/yellow/green semantics, just shifted toward the app's cyan-leaning
-// dark theme instead of the warmer default Tailwind shades.
+
 const severityStyles: Record<Severity, { bar: string; text: string; dot: string }> = {
   good: { bar: "from-teal-400 to-teal-600", text: "text-teal-600", dot: "bg-teal-500" },
   moderate: { bar: "from-yellow-400 to-yellow-600", text: "text-yellow-600", dot: "bg-yellow-500" },
@@ -96,6 +74,8 @@ const severityStyles: Record<Severity, { bar: string; text: string; dot: string 
 interface LabsPanelProps { labs: Labs | null; isLoading: boolean; a1cPercent?: number | null; }
 
 export function LabsPanel({ labs, isLoading, a1cPercent }: LabsPanelProps) {
+  const [isExpanded, setIsExpanded] = useState(false);
+
   if (isLoading && !labs) {
     return (
       <HoverScale className="rounded-[32px] border border-slate-200 bg-white p-3 sm:p-4 transition-colors duration-200 hover:shadow-md">
@@ -128,7 +108,7 @@ export function LabsPanel({ labs, isLoading, a1cPercent }: LabsPanelProps) {
 
   if (!labs) {
     return (
-      <HoverScale className="rounded-[32px] border border-slate-200 bg-white p-3 sm:p-4 transition-colors duration-200 hover:shadow-md flex flex-col items-center justify-center min-h-[180px] text-center gap-2">
+      <HoverScale className="rounded-[32px] border border-slate-200 mb-3 bg-white p-3 sm:p-4 transition-colors duration-200 hover:shadow-md flex flex-col items-center justify-center min-h-[240px] text-center gap-3">
         <svg className="h-9 w-9 text-slate-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9.75 3.104v5.714a2.25 2.25 0 01-.659 1.591L5 14.5M9.75 3.104c-.251.023-.501.05-.75.082m.75-.082a24.301 24.301 0 014.5 0m0 0v5.714c0 .597.237 1.17.659 1.591L19.8 15.3M14.25 3.104c.251.023.501.05.75.082M19.8 15.3l-1.57.393A9.065 9.065 0 0112 15a9.065 9.065 0 00-6.23-.693L5 14.5m14.8.8l1.402 1.402c1.232 1.232.65 3.318-1.067 3.611A48.309 48.309 0 0112 20.25a48.25 48.25 0 01-8.135-.687c-1.718-.293-2.3-2.379-1.067-3.61L5 14.5" />
         </svg>
@@ -142,7 +122,7 @@ export function LabsPanel({ labs, isLoading, a1cPercent }: LabsPanelProps) {
     <HoverScale className="rounded-[32px] border border-slate-200 bg-white p-3 sm:p-4 transition-colors duration-200 hover:border-slate-300 hover:shadow-md">
       <h3 className="mb-2 text-xs font-semibold uppercase tracking-wider text-slate-400">Labs</h3>
       <StaggerContainer className="space-y-3">
-        {buildRows(labs, a1cPercent).map((row) => {
+        {buildRows(labs, a1cPercent).slice(0, isExpanded ? undefined : 4).map((row) => {
           const hasValue = typeof row.value === "number" && !isNaN(row.value);
           const valText = hasValue ? row.value.toFixed(row.decimals) : "--";
           const pct = hasValue ? Math.max(0, Math.min(100, (row.value / row.max) * 100)) : 0;
@@ -152,7 +132,6 @@ export function LabsPanel({ labs, isLoading, a1cPercent }: LabsPanelProps) {
             <StaggerItem key={row.label} className="rounded-xl px-2 pb-2 pt-1 transition-colors duration-150 hover:bg-slate-50/50">
               <div className="mb-1 flex items-center justify-between text-sm">
                 <span className="flex items-center gap-1.5 font-semibold text-slate-700">
-                  {hasValue && <span className={`h-1.5 w-1.5 rounded-full ${style.dot}`} />}
                   {row.label}
                 </span>
                 <span className={`font-mono ${hasValue ? style.text : "text-slate-400"}`}>
@@ -167,6 +146,22 @@ export function LabsPanel({ labs, isLoading, a1cPercent }: LabsPanelProps) {
           );
         })}
       </StaggerContainer>
+      {buildRows(labs, a1cPercent).length > 4 && (
+        <button
+          onClick={() => setIsExpanded(!isExpanded)}
+          className="mt-4 flex w-full items-center justify-center gap-1 rounded-xl bg-slate-50 py-2 text-xs font-semibold text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-700"
+        >
+          {isExpanded ? "Show Less" : "Show More"}
+          <svg
+            className={`h-3 w-3 transition-transform duration-200 ${isExpanded ? "rotate-180" : ""}`}
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+          >
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+          </svg>
+        </button>
+      )}
     </HoverScale>
   );
 }

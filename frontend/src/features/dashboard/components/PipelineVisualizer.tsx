@@ -70,10 +70,10 @@ export function PipelineVisualizer({
   const pipelineFinished = allSpecialistsDone && synthesisDone && !isLoading;
 
   const getRiskColor = (spec: SpecialistResult | undefined) => {
-    if (!spec || !spec.available || spec.risk_score === null) return "bg-slate-100 border-slate-200 text-slate-400";
-    if (spec.flag || spec.risk_score >= 0.7) return "bg-rose-50 border-rose-300 text-rose-600 shadow-[0_0_12px_rgba(244,63,94,0.15)]";
-    if (spec.risk_score >= 0.4) return "bg-amber-50 border-amber-300 text-amber-600 shadow-[0_0_12px_rgba(245,158,11,0.15)]";
-    return "bg-emerald-50 border-emerald-300 text-emerald-600 shadow-[0_0_12px_rgba(16,185,129,0.15)]";
+    if (!spec || !spec.available || spec.risk_score === null) return "text-slate-400";
+    if (spec.flag || spec.risk_score >= 0.7) return "text-rose-600";
+    if (spec.risk_score >= 0.4) return "text-amber-600";
+    return "text-emerald-600";
   };
 
   // Same severity bands as getRiskColor/OrganRiskMap, isolated to just the
@@ -118,9 +118,9 @@ export function PipelineVisualizer({
         <div className="flex flex-col items-center z-10 w-full md:w-auto">
           <div className={`flex h-14 w-14 items-center justify-center rounded-full border-2 transition-all duration-300 ${
             pipelineFinished
-              ? "bg-emerald-50 border-emerald-400 text-emerald-600 shadow-[0_0_15px_rgba(16,185,129,0.2)]"
+              ? "bg-emerald-50 border-emerald-400 text-emerald-600"
               : hasLabs
-              ? "bg-sky-50 border-sky-400 text-sky-600 shadow-[0_0_15px_rgba(56,189,248,0.2)]"
+              ? "bg-sky-50 border-sky-400 text-sky-600"
               : "bg-slate-50 border-slate-200 text-slate-400"
           }`}>
             <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -157,11 +157,11 @@ export function PipelineVisualizer({
 
               return (
                 <div key={key} className={`flex flex-col items-center gap-1 p-2 rounded-xl border bg-white w-full min-w-[64px] transition-all duration-300 ${
-                  isDone ? "border-slate-200" : isActive ? "border-sky-300 shadow-[0_0_10px_rgba(56,189,248,0.15)]" : "border-slate-100 opacity-60"
+                  isDone ? "border-slate-200" : isActive ? "border-sky-300" : "border-slate-100 opacity-60"
                 }`}>
                   <div className={isFlagged
                     ? "flex h-8 w-8 items-center justify-center transition-all duration-300"
-                    : `flex h-8 w-8 items-center justify-center rounded-full border transition-all duration-300 text-xs font-bold ${colorClass}`
+                    : `flex h-8 w-8 items-center justify-center transition-all duration-300 text-[13px] font-black tracking-tight ${colorClass}`
                   }>
                     {isDone ? (
                       !spec.available || spec.risk_score === null ? (
@@ -202,9 +202,9 @@ export function PipelineVisualizer({
         <div className="flex flex-col items-center z-10 w-full md:w-auto">
           <div className={`flex h-14 w-14 items-center justify-center rounded-full border-2 transition-all duration-300 ${
             pipelineFinished
-              ? "bg-emerald-50 border-emerald-400 text-emerald-600 shadow-[0_0_15px_rgba(16,185,129,0.2)]"
+              ? "bg-emerald-50 border-emerald-400 text-emerald-600"
               : synthesisDone
-              ? "bg-sky-50 border-sky-400 text-sky-600 shadow-[0_0_15px_rgba(56,189,248,0.2)]"
+              ? "bg-sky-50 border-sky-400 text-sky-600"
               : isLoading && allSpecialistsDone
               ? "bg-slate-50 border-sky-400 text-sky-400"
               : "bg-slate-50 border-slate-200 text-slate-400"
@@ -239,7 +239,7 @@ export function PipelineVisualizer({
         <div className="flex flex-col items-center z-10 w-full md:w-auto">
           <div className={`flex h-14 w-14 items-center justify-center rounded-full border-2 transition-all duration-300 ${
             pipelineFinished
-              ? "bg-emerald-50 border-emerald-400 text-emerald-600 shadow-[0_0_15px_rgba(16,185,129,0.25)]"
+              ? "bg-emerald-50 border-emerald-400 text-emerald-600"
               : "bg-slate-50 border-slate-200 text-slate-400"
           }`}>
             <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">

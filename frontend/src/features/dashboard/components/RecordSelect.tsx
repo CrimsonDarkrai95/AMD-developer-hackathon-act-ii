@@ -51,9 +51,7 @@ export function RecordSelect({ patients, value, onChange, disabled }: RecordSele
         className="flex w-full items-center justify-between gap-2 rounded-full bg-transparent px-1 text-sm font-mono font-semibold text-slate-900 focus:outline-none disabled:opacity-40 dark:text-slate-100"
       >
         <span className="truncate">
-          {selected
-            ? `${selected.patient_id} (Age: ${selected.age}, A1c: ${selected.a1c_percent}%)`
-            : "Select a patient"}
+          {selected ? selected.patient_id : "Select a patient"}
         </span>
         <svg
           className={`h-4 w-4 flex-shrink-0 text-slate-400 transition-transform duration-150 ${isOpen ? "rotate-180" : ""}`}

@@ -25,14 +25,8 @@ const specialistLabels: Record<string, string> = {
   cardiovascular: "Heart & Vessels (Cardiology)",
 };
 
-// ---------------------------------------------------------------------
-// Rig geometry. Every joint is defined once here and reused both by the
-// mesh builder (HumanoidFigure) and the hotspot placer (Hotspots), so the
-// dots are guaranteed to land on the actual rendered limbs instead of
-// drifting out of sync with them. Coordinates are in a pelvis-centered
-// local frame (y=0 at the hips); RIG_Y_OFFSET below re-centers the whole
-// figure at the world origin for the camera/OrbitControls target.
-// ---------------------------------------------------------------------
+// Rig geometry shared by the figure and hotspots. Coordinates are in a
+// pelvis-centered frame (y=0 at the hips).
 const HEAD_R = 0.115;
 const HEAD_Y = 1.05;
 
@@ -54,14 +48,7 @@ const LEG_LEN = 0.62;
 const LEG_R = 0.065;
 const LEG_ANGLE = 0.05; // outward lean, radians
 
-// Legs used to hang from a separate pelvis capsule, but that capsule's
-// rounded caps overlapped the torso's rounded bottom cap by a lot (~0.13
-// units), stacking two translucent double-sided meshes on top of each
-// other there and rendering as a dense, oddly-opaque, visually separate
-// blob instead of reading as part of the same figure. Simplest fix: drop
-// the pelvis mesh and hang the legs directly off the torso instead, at the
-// same overlap depth (0.035) into the torso's cap that the shoulders
-// already use at the top - so hips and shoulders attach symmetrically.
+// Attach legs directly to the torso to avoid overlapping translucent meshes.
 const TORSO_BOTTOM_EDGE_Y = TORSO_Y - TORSO_LEN / 2;
 const HIP_Y = TORSO_BOTTOM_EDGE_Y - 0.035;
 
@@ -77,45 +64,12 @@ function limbEndpoint(
   return [px + length * Math.sin(side * angle), py - length * Math.cos(side * angle), pz];
 }
 
-// Vertical re-centering offset, derived from the rig constants above
-// (head top down to the foot-cap bottom) rather than hand-picked, so the
-// figure stays centered on the camera/OrbitControls target even as the
-// rig's proportions change. This used to be a hardcoded -0.24, a guess
-// that was never recalculated after later edits reshaped the rig (e.g.
-// the pelvis capsule removal above) - it left the true vertical midpoint
-// about 0.17 units below where the camera was actually centered, which
-// pushed the whole figure down in frame and crowded the legs/feet and
-// the scan ring underneath them against - and often past - the bottom
-// edge of the panel. Computing it from the same geometry used to place
-// everything else keeps it correct by construction.
+// Vertical re-centering offset so the figure stays centered in view.
 const FIGURE_TOP_Y = HEAD_Y + HEAD_R;
 const FIGURE_BOTTOM_Y = HIP_Y - LEG_LEN * Math.cos(LEG_ANGLE) - LEG_R;
 const RIG_Y_OFFSET = -(FIGURE_TOP_Y + FIGURE_BOTTOM_Y) / 2;
 
-// ---------------------------------------------------------------------
-// Hotspot placement. Every marker is positioned INSIDE the translucent
-// mesh volume (embedded), not pinned to the outer surface. Two reasons:
-//
-// 1. Correctness bug: the previous neuropathy points took the limb's
-//    true surface tip and then overwrote its z-coordinate with
-//    `radius + epsilon` instead of offsetting FROM that point. That
-//    moves the dot to distance sqrt(r² + (r+ε)²) ≈ 1.41r from the limb
-//    axis — ~41% farther out than the limb's actual radius, i.e.
-//    visibly floating off the hand/foot. Embedding on-axis (below)
-//    sidesteps the whole class of bug: any point on the limb's
-//    centerline is guaranteed to be inside the capsule, full stop.
-// 2. Visual: the dot meshes themselves have real radius (0.032–0.05),
-//    which is a big fraction of the torso/limb radius. Centering a dot
-//    "on the surface" makes its own bulk poke out past the surface by
-//    almost its full radius. Embedding the center inward instead makes
-//    it read as a glowing marker visible *through* the translucent
-//    tissue (fits the "scan hologram" look) instead of a ball stuck to
-//    the outside of the body.
-// ---------------------------------------------------------------------
-
-// How far inward (from the true anatomical surface) each region's
-// hotspot centers sit. Kept well clear of the marker's own radius so
-// even the active/hover glow doesn't poke back out past the skin.
+// Embedded hotspot positions keep markers inside the translucent body.
 const TORSO_EMBED = 0.065; // sunk into torso/back surface
 const HEAD_EMBED = 0.03; // sunk into head surface
 const ARM_TIP_PULLBACK = 0.05; // shortened off the true fingertip
@@ -203,12 +157,7 @@ function useWebGLSupported() {
   return supported;
 }
 
-// Tracks the app's light/dark theme (toggled as a "dark" class on <html>,
-// see ThemeToggle.tsx) so the 3D material can react to it. The current
-// material — bright cyan emissive glow + pale sky-blue wireframe — was
-// tuned to pop against the dark navy panel and reads as washed-out/
-// scratchy on a light panel, so this lets HumanoidFigure swap to a
-// richer, more opaque, darker-lined look in light mode instead.
+// Track the current theme so 3D materials can adapt to light/dark mode.
 function useIsDark() {
   const [isDark, setIsDark] = useState(
     () => typeof document !== "undefined" && document.documentElement.classList.contains("dark")
@@ -225,13 +174,8 @@ function useIsDark() {
 }
 
 /**
- * Abstract, translucent "scanned hologram" figure built from primitive
- * geometry only — no imported mesh asset. Limbs are attached via nested
- * pivot groups (shoulder -> arm, hip -> leg) so each one hangs from, and
- * visually merges into, its parent joint rather than floating nearby.
- * Low-poly (faceted) segment counts on both the solid and wireframe
- * layers give it a deliberate low-fi "scan mesh" look instead of reading
- * as a smoothed-then-wireframed mismatch.
+ * Abstract translucent figure built from primitive geometry. Limbs attach
+ * via nested pivot groups so they hang naturally from the joints.
  */
 function HumanoidFigure({ isDark }: { isDark: boolean }) {
   // Dark mode: bright, glowy "hologram" — cyan emissive pop against a
@@ -331,7 +275,7 @@ function Hotspots({
         const isActive = activeSpec === key;
         const color = getHotspotColor(finding.risk_score);
         const labelAnchor = meta.points[0];
-        const dotR = isActive ? 0.05 : 0.032;
+        const dotR = isActive ? 0.035 : 0.02;
 
         return (
           <group key={key}>
@@ -373,14 +317,7 @@ function Hotspots({
                   </mesh>
                 )}
 
-                {/* Soft glow behind the dot for legibility, replacing an
-                    earlier solid dark/white ring outline that read as a
-                    harsh "stroke" wrapped around the marker. This is the
-                    dot's own color, larger and much more transparent, so
-                    it just softly bleeds outward instead of drawing a
-                    hard-edged ring in a clashing color. depthTest is off
-                    for the same reason as the dot below — see that
-                    comment. */}
+                {/* Soft halo behind the dot improves legibility without a hard outline. */}
                 <mesh renderOrder={19}>
                   <sphereGeometry args={[dotR * 1.6, 14, 14]} />
                   <meshBasicMaterial
@@ -429,10 +366,7 @@ function Hotspots({
   );
 }
 
-// Faint dashed-look scanning ring beneath the figure's feet, echoing the
-// old SVG's base ellipse for continuity with the app's existing motif.
-// Slightly darker/more opaque in light mode so it doesn't disappear
-// against the light panel the way the original fixed slate did.
+// Subtle scan ring beneath the figure's feet for visual continuity.
 function ScanRing({ isDark }: { isDark: boolean }) {
   const footBottomWorld =
     limbEndpoint([HIP_X, HIP_Y, 0], LEG_LEN, LEG_ANGLE, 1)[1] - LEG_R + RIG_Y_OFFSET;
@@ -480,12 +414,12 @@ function Scene({
       <OrbitControls
         enablePan={false}
         enableZoom
-        minDistance={1.8}
+        minDistance={2.4}
         maxDistance={3.6}
         minPolarAngle={Math.PI / 5}
         maxPolarAngle={Math.PI - Math.PI / 5}
         autoRotate={autoRotate}
-        autoRotateSpeed={0.4}
+        autoRotateSpeed={2.0}
         enableDamping
         dampingFactor={0.08}
       />
@@ -550,7 +484,7 @@ export default function OrganRiskMap3D({
       </div>
 
       <Canvas
-        camera={{ position: [0, 0.1, 2.7], fov: 40 }}
+        camera={{ position: [0, 0.1, 3.4], fov: 40 }}
         dpr={[1, 1.75]}
         gl={{ alpha: true, antialias: true }}
         onCreated={({ gl }) => gl.setClearColor(0x000000, 0)}

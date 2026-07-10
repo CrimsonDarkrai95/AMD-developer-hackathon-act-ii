@@ -11,12 +11,12 @@
 // fabricated-report problem locally. All brief text comes from the LLM via
 // POST /api/report/{patient_id}.
 
-import type { Demographics, SpecialistResult, SynthesisReport } from "@/types";
+import type { Demographics, Labs, SpecialistResult, SynthesisReport } from "@/types";
 
 export async function fetchBrief(
   patientId: string,
   demographics: Demographics,
-  labs: Record<string, number>,
+  labs: Labs | {},
   specialists: SpecialistResult[],
   synthesis: SynthesisReport
 ): Promise<string> {

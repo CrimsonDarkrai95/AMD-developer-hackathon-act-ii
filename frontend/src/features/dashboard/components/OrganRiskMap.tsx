@@ -109,10 +109,10 @@ export function OrganRiskMap({ specialists = [], synthesis, isLoading = false }:
   };
 
   const getRiskColorClass = (score: number | null) => {
-    if (score === null) return "text-slate-500 border-slate-200 bg-slate-50/60";
-    if (score >= 0.7) return "text-red-700 border-red-200 bg-red-50/60 hover:bg-red-50 hover:border-red-300";
-    if (score >= 0.4) return "text-amber-700 border-amber-200 bg-amber-50/60 hover:bg-amber-50 hover:border-amber-300";
-    return "text-emerald-700 border-emerald-200 bg-emerald-50/60 hover:bg-emerald-50 hover:border-emerald-300";
+    if (score === null) return "text-slate-500 border-slate-200 dark:border-slate-700/50 bg-white dark:bg-slate-900/50 hover:bg-slate-50 dark:hover:bg-slate-800/50";
+    if (score >= 0.7) return "text-red-700 dark:text-rose-400 border-red-200 dark:border-rose-500/30 bg-white dark:bg-slate-900/50 hover:border-red-300 dark:hover:border-rose-500/50";
+    if (score >= 0.4) return "text-amber-700 dark:text-amber-400 border-amber-200 dark:border-amber-500/30 bg-white dark:bg-slate-900/50 hover:border-amber-300 dark:hover:border-amber-500/50";
+    return "text-emerald-700 dark:text-emerald-400 border-emerald-200 dark:border-emerald-500/30 bg-white dark:bg-slate-900/50 hover:border-emerald-300 dark:hover:border-emerald-500/50";
   };
 
   return (
@@ -125,7 +125,7 @@ export function OrganRiskMap({ specialists = [], synthesis, isLoading = false }:
         </div>
       </div>
 
-      <div className="flex flex-col md:flex-row gap-6 flex-1 min-w-0 items-stretch">
+      <div className="flex flex-col md:flex-row gap-4 flex-1 min-w-0 items-stretch min-h-0">
         
         {/* SVG Silhouette Panel (Left side) - Clean minimalist style.
             Uses its own dedicated bg/border (rather than the shared
@@ -133,7 +133,7 @@ export function OrganRiskMap({ specialists = [], synthesis, isLoading = false }:
             mode) because that shared dark override lands almost the
             exact same navy as the parent glass-card, so the panel was
             invisible against its own container in dark mode. */}
-        <div className="flex-[1.3] min-w-0 flex items-center justify-center bg-slate-100/70 dark:bg-slate-800/40 border border-slate-200/60 dark:border-slate-700/50 rounded-[32px] p-5 min-h-[480px] relative overflow-hidden select-none">
+        <div className="flex-[1.4] min-w-0 min-h-[280px] md:min-h-0 flex items-center justify-center bg-slate-100/70 dark:bg-slate-800/40 border border-slate-200/60 dark:border-slate-700/50 rounded-[32px] p-5 relative overflow-hidden select-none">
           {/* Dotted Grid Pattern Background — separate light/dark layers
               since dark dots on a dark panel are invisible. */}
           <div className="pointer-events-none absolute inset-0 opacity-[0.03] dark:hidden bg-[linear-gradient(to_right,#0f172a_1px,transparent_1px),linear-gradient(to_bottom,#0f172a_1px,transparent_1px)] bg-[size:14px_14px]" />
@@ -143,7 +143,7 @@ export function OrganRiskMap({ specialists = [], synthesis, isLoading = false }:
               since three.js can't run server-side. Preserves the exact
               same bidirectional highlight state (activeSpec) the old SVG
               hotspots used. */}
-          <div className="w-full h-full max-w-[880px] max-h-[880px]">
+          <div className="absolute inset-0 flex items-center justify-center">
             <OrganRiskMap3D
               specialists={specialists}
               activeSpec={activeSpec}
@@ -188,7 +188,7 @@ export function OrganRiskMap({ specialists = [], synthesis, isLoading = false }:
           )}
 
           {/* Specialist Grid */}
-          <StaggerContainer className="grid grid-cols-1 sm:grid-cols-2 gap-4 flex-1 min-w-0">
+          <StaggerContainer className="grid grid-cols-1 xs:grid-cols-2 gap-3 min-w-0">
             {specialists.map((finding) => {
               const isActive = activeSpec === finding.specialist;
               const isTopRisk = !!highestRisk && finding.specialist === highestRisk.specialist && (finding.risk_score ?? 0) >= 0.4;
@@ -202,7 +202,7 @@ export function OrganRiskMap({ specialists = [], synthesis, isLoading = false }:
 
               return (
                 <StaggerItem key={finding.specialist} className="flex min-w-0">
-                  <HoverScale
+                  <div
                     role="button"
                     tabIndex={0}
                     aria-pressed={isActive}
@@ -215,59 +215,40 @@ export function OrganRiskMap({ specialists = [], synthesis, isLoading = false }:
                         toggleSelected(finding.specialist);
                       }
                     }}
-                    className={`w-full relative rounded-xl border p-5 flex flex-col justify-between min-h-[150px] transition-colors duration-200 cursor-pointer outline-none ${getRiskColorClass(
+                    className={`w-full relative rounded-xl border p-4 flex flex-col justify-between transition-colors duration-200 cursor-pointer outline-none ${getRiskColorClass(
                       finding.risk_score
-                    )} ${isTopRisk ? "ring-2 ring-rose-300" : ""} ${isActive ? "ring-2 ring-sky-400 shadow-md" : "shadow-sm"}`}
+                    )} ${isTopRisk ? "ring-2 ring-rose-300 dark:ring-rose-500/50" : ""} ${isActive ? "shadow-md dark:bg-slate-800/80 bg-slate-50" : "shadow-sm"}`}
                   >
-                  {isTopRisk && (
-                    <span className="absolute -top-2.5 left-3 rounded-full bg-rose-600 px-3 py-1 text-[11px] font-bold uppercase tracking-wider text-white shadow-sm">
-                      Top Concern
-                    </span>
-                  )}
+
                   <div className="flex items-start justify-between gap-2">
                     <div className="flex flex-col min-w-0">
                       {(() => {
                         const { main, sub } = splitSpecialistLabel(specialistLabels[finding.specialist] ?? finding.specialist);
                         return (
                           <>
-                            <span className="text-xl font-bold leading-tight text-slate-900 truncate">
+                            <span className="text-xl font-bold leading-tight text-slate-900 dark:text-white truncate">
                               {main}
                             </span>
                             {sub && (
-                              <span className="text-sm font-semibold text-slate-500 tracking-wide truncate">
+                              <span className="text-sm font-semibold text-slate-500 dark:text-slate-400 tracking-wide truncate">
                                 {sub}
                               </span>
                             )}
                           </>
                         );
                       })()}
-                      <span className="text-xs uppercase tracking-wider text-slate-400 mt-1.5">
-                        {getSeverityLabel(finding.available, finding.risk_score)}
-                      </span>
-                    </div>
-                    {/* Ring indicator */}
-                    <div className="relative flex items-center justify-center h-5 w-5 mt-0.5">
-                      <span className={`h-3.5 w-3.5 rounded-full ${
-                        !finding.available
-                          ? "bg-slate-400"
-                          : (finding.risk_score ?? 0) >= 0.7
-                          ? "bg-red-500"
-                          : (finding.risk_score ?? 0) >= 0.4
-                          ? "bg-amber-500"
-                          : "bg-emerald-500"
-                      }`} />
                     </div>
                   </div>
 
-                  <div className="mt-5 flex items-baseline justify-between">
-                    <span className="text-sm font-mono text-slate-400">
+                  <div className="mt-1 flex items-baseline justify-between">
+                    <span className="text-[11px] font-mono text-slate-400">
                       RISK PROBABILITY
                     </span>
                     <span className={`text-3xl font-bold font-mono tracking-tight leading-none ${scoreColor}`}>
                       {finding.risk_score !== null ? `${(finding.risk_score * 100).toFixed(0)}%` : "N/A"}
                     </span>
                   </div>
-                  </HoverScale>
+                  </div>
                 </StaggerItem>
               );
             })}

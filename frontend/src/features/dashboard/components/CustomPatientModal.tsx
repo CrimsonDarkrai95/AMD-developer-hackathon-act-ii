@@ -149,18 +149,18 @@ export function CustomPatientModal({
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
           transition={{ duration: 0.15 }}
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm"
+          className="fixed inset-0 z-50 flex items-end xs:items-center justify-center xs:p-4 bg-slate-900/60 backdrop-blur-sm"
         >
           <motion.div
             initial={{ scale: 0.95, y: 20 }}
             animate={{ scale: 1, y: 0 }}
             exit={{ scale: 0.95, y: 20 }}
             transition={{ type: "spring", stiffness: 300, damping: 20 }}
-            className="relative w-full max-w-2xl rounded-[32px] border border-slate-200 bg-white shadow-2xl flex flex-col max-h-[90dvh] overflow-hidden"
+            className="relative w-full max-w-2xl rounded-t-[32px] xs:rounded-[32px] border border-slate-200 bg-white shadow-2xl flex flex-col max-h-[95dvh] xs:max-h-[90dvh] overflow-hidden"
           >
         
         {/* Modal Header */}
-        <div className="flex items-center justify-between border-b border-slate-100 px-6 py-4 sm:px-8">
+        <div className="flex items-center justify-between border-b border-slate-100 px-4 py-3 sm:px-6 sm:py-4 md:px-8">
           <div>
             <h2 className="text-xl font-bold text-slate-900">Custom Complication Screening</h2>
             <p className="text-xs text-slate-500 mt-0.5">Enter custom patient demographics and lab readings to run a swarm analysis.</p>
@@ -176,7 +176,7 @@ export function CustomPatientModal({
         </div>
 
         {/* Modal Body */}
-        <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto p-4 sm:p-8 space-y-6">
+        <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto p-4 sm:p-6 md:p-8 space-y-4 sm:space-y-6">
           
           {/* Quick presets */}
           <div className="flex items-center gap-2 pb-2 border-b border-slate-100">
@@ -198,13 +198,13 @@ export function CustomPatientModal({
           </div>
 
           {/* Row 1: Section headers */}
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 xs:grid-cols-2 gap-3">
             <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400">Demographics & Profile</h3>
-            <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400">Renal Function</h3>
+            <h3 className="hidden xs:block text-xs font-bold uppercase tracking-wider text-slate-400">Renal Function</h3>
           </div>
 
           {/* Row 2: Full Name (left) | eGFR (right) — same visual row */}
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 xs:grid-cols-2 gap-3">
             <div>
               <label className="block text-xs font-semibold text-slate-600 mb-1">Full Name (Optional)</label>
               <input
@@ -234,7 +234,7 @@ export function CustomPatientModal({
           </div>
 
           {/* Row 3: Age + Sex (left) | UACR + Creatinine (right) */}
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 xs:grid-cols-2 gap-3">
             {/* Age + Sex sub-grid */}
             <div className="grid grid-cols-2 gap-3">
               <div>
@@ -297,7 +297,7 @@ export function CustomPatientModal({
           </div>
 
           {/* Row 4: Diabetic Duration + HbA1c (left) | empty (right, balanced) */}
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 xs:grid-cols-2 gap-3">
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <label className="block text-xs font-semibold text-slate-600 mb-1">Diabetes Duration(yrs)</label>
@@ -336,7 +336,7 @@ export function CustomPatientModal({
             <div className="space-y-4">
               <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400">Cardiovascular & Lipids</h3>
               
-              <div className="grid grid-cols-3 gap-2">
+              <div className="grid grid-cols-2 xs:grid-cols-3 gap-2">
                 <div>
                   <label className="block text-[10px] font-bold text-slate-600 mb-1">LDL (mg/dL)</label>
                   <input
@@ -369,7 +369,7 @@ export function CustomPatientModal({
                 </div>
               </div>
               
-              <div className="grid grid-cols-3 gap-2 text-rose-500 text-[9px]">
+              <div className="grid grid-cols-2 xs:grid-cols-3 gap-2 text-rose-500 text-[9px]">
                 <div>
                   {(localErrors.ldl_mg_dl || backendFieldErrors.ldl_mg_dl) && (
                     <p>{localErrors.ldl_mg_dl || backendFieldErrors.ldl_mg_dl}</p>

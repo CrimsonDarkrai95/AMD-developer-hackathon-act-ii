@@ -1,28 +1,10 @@
 """
 agent_core.py
 --------------
-Handles calling an LLM agent and executing whatever Python analysis code the
-agent writes, in a controlled namespace.
+Handles calling an LLM agent and executing Python analysis code the agent writes.
 
-ARCHITECTURE: the live inference path is Fireworks AI (hosted API) as the
-main provider, with a testing-only secondary provider clearly marked
-elsewhere in this file (search for 'TESTING ONLY').
-
-Track 3's AMD-compute requirement is satisfied by amd_compute/ (the AMD
-Developer Cloud Jupyter environment), exposed here as the manually-selectable
-"amd_notebook_qwen" / "amd_notebook_gemma" providers — genuine on-GPU Ollama
-inference, called directly via NOTEBOOK_RELAY_URL. These are manual-only
-selections and are never part of the auto-failover chain.
-
-Provider status is checked by actually testing connectivity once per process
-(cached with a TTL), never by just checking whether a key/URL string is
-configured — so a reported "live" status is always verified, not assumed.
-
-SECURITY: never hardcode real API keys in this file. Put them in a `.env`
-file in this folder (already gitignored — see backend/.env, listed in
-.gitignore) so python-dotenv loads them automatically without ever exposing
-them in the public GitHub repo. Only .env.example (with blank values) should
-be committed.
+Uses Fireworks AI as the main provider and supports AMD notebook relay providers.
+Provider connectivity is verified with cached checks.
 """
 
 import os
@@ -51,21 +33,10 @@ FIREWORKS_URL = "https://api.fireworks.ai/inference/v1/chat/completions"
 # call_featherless() as a fallback goes away with that block.
 NOTEBOOK_RELAY_URL = os.environ.get("NOTEBOOK_RELAY_URL", "")
 
-# ============================================================================
-# === FEATHERLESS (TESTING ONLY) — DELETE THIS ENTIRE BLOCK BEFORE FINAL ===
-# === SUBMISSION. See DELETE_FEATHERLESS.md for the full checklist.       ===
-# ============================================================================
-# Featherless AI - a fast/free secondary provider used only during testing,
-# called DIRECTLY against api.featherless.ai. Pulled from the
-# FEATHERLESS_API_KEY environment variable (set it in backend/.env - see
-# backend/.env.example). This whole block, plus call_featherless() further
-# down (also delete-marked) and the ("featherless", call_featherless) entry in
-# _PROVIDERS, is what gets removed for the final submission.
+# FEATHERLESS (TESTING ONLY) - a testing-only secondary provider removed before final submission.
 FEATHERLESS_API_KEY = os.environ.get("FEATHERLESS_API_KEY", "")
 FEATHERLESS_MODEL = os.environ.get("FEATHERLESS_MODEL", "Qwen/Qwen2.5-7B-Instruct")
 FEATHERLESS_URL = "https://api.featherless.ai/v1/chat/completions"
-# === END FEATHERLESS (TESTING ONLY) CONSTANTS ===
-# ============================================================================
 
 # Cache connectivity checks so we don't ping the provider on every single
 # specialist call. A success is cached for a long time (a working provider
@@ -90,20 +61,7 @@ _FEATHERLESS_ROUTE = {"route": None}
 # the UI actually guarantees Fireworks is what runs, not just "tried first".
 _FORCED_PROVIDER = {"value": None}
 
-# All selectable provider ids, in display order. "amd_notebook_qwen" and
-# "amd_notebook_gemma" both call amd_compute/amd_notebook_relay_server.ipynb
-# on the AMD Developer Cloud instance and ask it to run that model locally via
-# Ollama on the AMD GPU - genuine on-device compute, manual-only (never part
-# of the auto-failover chain).
-#
-# amd_notebook_qwen runs qwen2.5-coder:7b rather than a general chat model,
-# because this pipeline's design has each specialist ask the LLM to write
-# Python code that gets executed (see specialists.py). A general chat model
-# produced code that threw at execution time often enough that specialists
-# were honestly reporting themselves "unavailable" rather than fabricate a
-# score; a code-specialized model directly fixes that failure mode instead of
-# just papering over it with retries. Fireworks is listed first as the main
-# provider.
+# Provider IDs in display order. AMD notebook providers are manual-only.
 PROVIDER_IDS = ["fireworks", "featherless", "amd_notebook_qwen", "amd_notebook_gemma"]
 
 # Counts actual call_llm() invocations (including retries), so the Benchmark tab
@@ -132,22 +90,10 @@ SCORING_TEMPERATURE = 0.2
 
 
 def _post_with_retry(url: str, headers: dict, json_body: dict, timeout: int = 60) -> "requests.Response":
-    """POST with short backoff-and-retry, but ONLY for transient/provider-side
-    conditions (HTTP 429 rate limiting, or a connection/timeout error) - never
-    for a real 4xx/5xx from the provider actually rejecting the request body.
+    """POST with retry for transient network/provider issues such as 429s.
 
-    Why this exists: all 4 specialists fire their LLM calls in parallel (see
-    run_pipeline.py's fan-out), so on Featherless's free/test tier it's common
-    for exactly one of the 4 simultaneous requests to get hit with a 429 while
-    the other 3 succeed - which looks like a totally random single specialist
-    going "Unavailable" on any given run, even though nothing about that
-    specialist or its prompt was actually wrong. Before this fix, a 429 was
-    treated identically to the model writing broken Python: it just burned one
-    of specialists.py's 2 code-quality retry attempts and moved on. Retrying
-    the plain network call here (with a short backoff so we don't hammer
-    straight back into the same rate limit) fixes the actual transient cause
-    instead of spending a code-quality retry on a problem that had nothing to
-    do with code quality.
+    This decreases the chance that one parallel specialist call fails due to
+    a rate-limit spike while the others succeed.
     """
     import requests
     last_exc: Exception | None = None
@@ -196,18 +142,7 @@ def call_fireworks(system_prompt: str, user_prompt: str) -> str:
 # === FINAL SUBMISSION. See DELETE_FEATHERLESS.md for the full checklist. ===
 # ============================================================================
 def call_featherless(system_prompt: str, user_prompt: str) -> str:
-    """Calls Featherless DIRECTLY against api.featherless.ai first (fast,
-    free/cheap path used only during testing). Only if the direct call fails
-    (network error, timeout, non-2xx after retries) does this fall back to
-    the AMD notebook relay at NOTEBOOK_RELAY_URL, which is exposed by
-    amd_compute/amd_notebook_relay_server.ipynb running on the AMD
-    Developer Cloud instance.
-
-    TESTING ONLY: this whole function is deleted before final submission
-    (along with the FEATHERLESS_* constants above and the ("featherless",
-    call_featherless) entry in _PROVIDERS below). NOTEBOOK_RELAY_URL itself
-    is NOT deleted - it's still used by call_amd_notebook_qwen/gemma.
-    """
+    """Calls Featherless for testing, falling back to the notebook relay if needed."""
     if not FEATHERLESS_API_KEY:
         raise RuntimeError("FEATHERLESS_API_KEY not set.")
 
@@ -311,19 +246,11 @@ def call_amd_notebook_gemma(system_prompt: str, user_prompt: str) -> str:
     return call_amd_notebook_ollama(system_prompt, user_prompt, NOTEBOOK_OLLAMA_MODELS["amd_notebook_gemma"])
 
 
-# Fireworks first: the MAIN, always-on live-inference provider. Featherless
-# (direct API call, AMD notebook relay as its own internal fallback - see
-# call_featherless()) is a TESTING-ONLY secondary provider that's only tried
-# if Fireworks itself is unreachable - and it is entirely removed for final
-# submission (delete the ("featherless", call_featherless) tuple below along
-# with everything else marked "FEATHERLESS (TESTING ONLY)" in this file - see
-# DELETE_FEATHERLESS.md).
-#
-# amd_notebook is NOT in the auto-failover chain - it only runs when manually
-# forced (see PROVIDER_IDS / _ALL_PROVIDER_FNS / set_forced_provider).
+# Fireworks is the main provider. Featherless is a testing-only fallback.
+# AMD notebook providers are not auto-failover; they run only when forced.
 _PROVIDERS = [
     ("fireworks", call_fireworks),
-    ("featherless", call_featherless),  # FEATHERLESS (TESTING ONLY) - delete this line too
+    ("featherless", call_featherless),  # FEATHERLESS (TESTING ONLY)
 ]
 
 # Every selectable provider's actual call function, including amd_notebook -
@@ -354,17 +281,9 @@ def get_forced_provider() -> str | None:
 
 
 def get_llm_status() -> str | None:
-    """
-    Tests each configured backend with a trivial ping call and returns the
-    name of the first one that actually works, or None if every backend is
-    offline/unreachable. Result is cached with a TTL rather than forever:
-    a success is trusted for _SUCCESS_TTL_SECONDS, a failure only for
-    _FAILURE_TTL_SECONDS, so a single transient blip on the first ping can't
-    permanently mislabel the whole process as offline.
+    """Returns the first reachable provider, caching results briefly.
 
-    If a forced provider is set (see set_forced_provider()), ONLY that
-    provider is tested/reported - no silent failover to a different one, so a
-    manual selection in the UI is an honest guarantee, not just a preference.
+    If a provider is forced, only it is tested.
     """
     forced = _FORCED_PROVIDER["value"]
     now = time.monotonic()
@@ -393,12 +312,7 @@ def has_llm() -> bool:
 
 
 def get_provider_detail() -> str | None:
-    """Human-readable version of get_llm_status() that also names the actual
-    route for Featherless (direct api.featherless.ai vs. the AMD Developer
-    Cloud notebook fallback), so the console/Benchmark tab can show which of
-    the real paths (Featherless-direct, AMD-notebook, Fireworks) served the
-    last request instead of just a provider name.
-    """
+    """Returns a human-readable provider status string, including the active route."""
     provider = get_llm_status()
     if provider is None:
         return None
@@ -415,18 +329,8 @@ def get_provider_detail() -> str | None:
 
 def call_llm(system_prompt: str, user_prompt: str) -> str:
     """
-    Calls whichever backend get_llm_status() found working. Raises a clear
-    RuntimeError if none are reachable - callers should catch this and report
-    'LLM OFFLINE' honestly rather than silently using a different code path.
-
-    A small random jitter is inserted before dispatching. All 4 specialists
-    call this at effectively the same instant (LangGraph fans them out in
-    parallel), so without any spacing, 4 requests land in the provider's
-    rate-limit window in the same fraction of a second - which is exactly
-    what was causing a random single specialist to eat a 429. Spreading the
-    actual dispatch times out over ~0-1.2s costs a trivial amount of wall
-    time but meaningfully reduces how often multiple requests collide in the
-    same rate-limit window in the first place.
+    Calls the currently available provider, or raises if none are reachable.
+    A small jitter reduces parallel rate-limit collisions.
     """
     provider = get_llm_status()
     if provider is None:

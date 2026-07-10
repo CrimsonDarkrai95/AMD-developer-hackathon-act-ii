@@ -1,19 +1,11 @@
 """
 specialists.py
 ----------------
-Defines the 4 specialist agents: renal, neuropathy, retinal, cardiovascular.
+Defines the four specialist agents and their system prompts.
 
-Each specialist has:
-  - a system_prompt (its "clinical lens" - describes WHAT to look for, but
-    deliberately does NOT hand the model pre-computed numeric cutoffs. The
-    model must state, and justify, whatever early-warning thresholds it
-    actually used, and those exact numbers are what get shown to the
-    clinician - not a fixed lookup table).
-
-There is NO rule-based/deterministic fallback. If no LLM backend is reachable,
-or the model's generated code still fails to execute after a few retries, the
-specialist honestly reports itself as unavailable instead of returning
-fabricated, hardcoded risk data. See run_specialist() -> _unavailable_result().
+The model must generate executable Python that produces a `result` dict. If
+no LLM is reachable or code execution fails, the specialist reports itself as
+unavailable.
 """
 
 import time
@@ -129,25 +121,14 @@ result = {
 """
 
 
-# ---------------------------------------------------------------------------
-# FIELD LISTS - which patient dict keys each specialist actually reads. This
-# is data-routing plumbing (which columns get shown to which agent), not a
-# clinical judgment call, so it isn't "hardcoded reasoning" in the sense this
-# rewrite is about - no thresholds or scores live here.
-# ---------------------------------------------------------------------------
+# Field lists specify which patient inputs each specialist reads.
 RENAL_FIELDS = ["egfr", "uacr_mg_g", "creatinine_mg_dl"]
 NEUROPATHY_FIELDS = ["years_with_diabetes", "a1c_percent"]
 RETINAL_FIELDS = ["systolic_bp", "years_with_diabetes"]
 CARDIO_FIELDS = ["ldl_mg_dl", "hdl_mg_dl", "triglycerides_mg_dl"]
 
 
-# ---------------------------------------------------------------------------
-# SYSTEM PROMPTS - describe the clinical domain and what to look for, but
-# leave the actual numeric early-warning cutoffs to the model's own clinical
-# knowledge. It must show its work: name the cutoff, name the patient value,
-# and report both back in `thresholds_used` so the frontend renders exactly
-# what the model actually reasoned with, not a fixed reference table.
-# ---------------------------------------------------------------------------
+# System prompts describe the clinical lens; numeric cutoffs are chosen by the model.
 RENAL_SYSTEM_PROMPT = """You are a renal (kidney) specialist agent analyzing diabetic patient
 lab data to catch early kidney stress BEFORE standard diagnostic thresholds are hit (i.e. your
 cutoffs should be more conservative/sensitive than standard disease-stage cutoffs like eGFR 60
@@ -193,9 +174,7 @@ SPECIALIST_FIELDS = {
 
 
 def _unavailable_result(name: str, start: float, input_labs: dict, reason: str) -> dict:
-    """Honest 'no analysis happened' result. No risk_score/flag are fabricated -
-    they're explicitly None so the frontend can't accidentally render a fake
-    0% (which would read as a clean bill of health) or any other made-up number."""
+    """Return an unavailable specialist result with no fabricated risk values."""
     duration_ms = int((time.perf_counter() - start) * 1000)
     return {
         "specialist": name,
@@ -213,11 +192,7 @@ def _unavailable_result(name: str, start: float, input_labs: dict, reason: str) 
 
 
 def run_specialist(name: str, patient: dict) -> dict:
-    """Runs one specialist agent on one patient via a live LLM only. There is no
-    rule-based fallback: if no LLM backend is reachable, or the model's code
-    still fails to execute after a few retries, the specialist is honestly
-    reported as unavailable rather than substituting hardcoded logic.
-    """
+    """Run one specialist through a live LLM and return its result."""
     system_prompt = SPECIALISTS[name]
     start = time.perf_counter()
     input_labs = {k: patient[k] for k in SPECIALIST_FIELDS[name] if k in patient}

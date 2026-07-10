@@ -64,35 +64,22 @@ export default function DashboardPage() {
   const [llmStatus, setLlmStatus] = useState<string>("checking...");
   const [llmModel, setLlmModel] = useState<string | null>(null);
 
-  // Onboarding welcome modal state
   const [isWelcomeOpen, setIsWelcomeOpen] = useState<boolean>(false);
   const [mounted, setMounted] = useState<boolean>(false);
-
-  // Custom patient modal states
   const [isCustomModalOpen, setIsCustomModalOpen] = useState<boolean>(false);
   const [backendFieldErrors, setBackendFieldErrors] = useState<Record<string, string>>({});
-
-  // Real-time terminal logs state
   const [terminalLogs, setTerminalLogs] = useState<string[]>([]);
-
-  // Toast notifications for flagged specialist results
   const [toasts, setToasts] = useState<ToastItem[]>([]);
 
   const dismissToast = (id: string) => {
     setToasts((prev) => prev.filter((t) => t.id !== id));
   };
 
-  // Auto-generated clinical brief state
   const [clinicalBrief, setClinicalBrief] = useState<string>("");
   const [isBriefLoading, setIsBriefLoading] = useState<boolean>(false);
-
-  // Tracks the active custom patient ID separately so a custom run never
-  // overwrites the dataset dropdown’s selectedPatientId. Cleared when the
-  // user switches back to a dataset patient.
   const [customPatientId, setCustomPatientId] = useState<string | null>(null);
 
-  // The ID to show in the header, brief, and other display components.
-  // Prefers the custom patient when one is active.
+  // Prefer the custom patient ID when available.
   const displayPatientId = customPatientId || selectedPatientId;
 
   useEffect(() => {
@@ -184,11 +171,7 @@ export default function DashboardPage() {
       setCustomPatientId(null);
     }
 
-    // Local accumulators — kept for demographics/labs bookkeeping during the
-    // stream (still needed elsewhere in this handler). No longer used to
-    // auto-fire a brief request; brief generation is now manual (see
-    // handleGenerateBrief), triggered from the ReportExport button using
-    // React state directly once the pipeline has actually finished.
+    // Local accumulators for streamed pipeline updates.
     let localSpecialists: any[] = [];
     let localSynthesis: any = null;
     let localLabs: Record<string, number> = {};
@@ -254,9 +237,7 @@ export default function DashboardPage() {
           `> [SYSTEM] Execution mode: ${providerLabel}`,
         ]);
         
-        // Save the custom patient ID for display (header, brief etc.) WITHOUT
-        // overwriting the dataset dropdown’s selectedPatientId, so switching back
-        // to a dataset patient after this run works immediately.
+        // Keep the custom patient ID for display without overwriting the dataset selector.
         if (customData) {
           localPatientId = event.patient_id;
           setCustomPatientId(event.patient_id);
@@ -467,103 +448,119 @@ export default function DashboardPage() {
     <div className="min-h-screen bg-slate-50 dark:bg-[#0b1120] font-sans antialiased">
       {/* Sticky Header */}
       <header className="sticky top-0 z-30 w-full border-b border-white/40 dark:border-slate-700/40 bg-white/40 dark:bg-slate-900/40 backdrop-blur-xl backdrop-saturate-150">
-        <div className="mx-auto flex max-w-[1600px] flex-col gap-3 px-4 py-2 sm:px-4 sm:py-2.5 lg:px-12 lg:flex-row lg:items-center lg:justify-between lg:gap-3">
-          {/* Brand */}
-          <div className="flex items-center justify-between w-full lg:w-auto">
-            <div className="flex items-center gap-2.5">
-              <div className="flex h-11 w-11 sm:h-12 sm:w-12 flex-shrink-0 items-center justify-center overflow-hidden rounded-[32px] bg-white p-1.5 shadow-sm ring-1 ring-slate-200/60 dark:bg-slate-800 dark:ring-slate-700/60">
+        <div className="mx-auto max-w-[1600px] px-3 py-1.5 sm:px-4 lg:px-12">
+
+          {/* ── Row 1: Brand ↔ Theme + Info (mobile) / full controls (desktop) ── */}
+          <div className="flex items-center justify-between gap-2 lg:gap-3">
+
+            {/* Brand */}
+            <div className="flex items-center gap-2 flex-shrink-0">
+              <div className="flex h-9 w-9 sm:h-10 sm:w-10 flex-shrink-0 items-center justify-center overflow-hidden rounded-[32px] bg-white p-1.5 shadow-sm ring-1 ring-slate-200/60 dark:bg-slate-800 dark:ring-slate-700/60">
                 <Logo className="h-full w-full object-contain" />
               </div>
               <div>
-                <h1 className="text-xl sm:text-2xl md:text-3xl font-bold tracking-tight text-slate-900 leading-none">GlycoSwarm AI</h1>
-                <p className="hidden sm:block text-xs sm:text-sm font-medium text-slate-500 mt-0.5">
-                  AI-powered multi-agent diabetic complication early-warning triage
-                </p>
+                <h1 className="text-base sm:text-xl font-bold tracking-tight text-slate-900 leading-none dark:text-slate-100">GlycoSwarm AI</h1>
+                <p className="hidden sm:block text-[10px] font-medium text-slate-500 dark:text-slate-400 mt-0.5 leading-tight">Multi-Agent Diabetes Risk Triage</p>
               </div>
             </div>
-            
-            {/* Mobile/Tablet Info button */}
-            <button
-              onClick={() => setIsWelcomeOpen(true)}
-              className="lg:hidden rounded-xl border border-slate-200 bg-white p-2 text-slate-400 hover:bg-slate-50 hover:text-slate-600 transition-colors shadow-sm flex-shrink-0"
-              title="System Guide Overview"
-            >
-              <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
-            </button>
+
+            {/* Desktop-only: full controls inline */}
+            <div className="hidden lg:flex items-center gap-3 flex-shrink-0">
+              {/* Patient selector + Analyze pill */}
+              <div className="flex items-center gap-2 rounded-[32px] border border-slate-200 bg-white dark:bg-slate-800/80 dark:border-slate-700/60 pl-3 pr-1 py-1 transition-all duration-200 hover:border-slate-300 hover:shadow-sm">
+                <label className="whitespace-nowrap text-[10px] font-semibold uppercase tracking-wider text-slate-400 dark:text-slate-500">Record:</label>
+                {isPatientsLoading ? (
+                  <span className="animate-pulse text-sm text-slate-400 font-medium px-2">Index mapping...</span>
+                ) : (
+                  <RecordSelect patients={patients} value={selectedPatientId} onChange={setSelectedPatientId} disabled={isPipelineRunning} />
+                )}
+                <HoverScale hoverScale={1.05} tapScale={0.95} className={isPipelineRunning || !selectedPatientId ? 'pointer-events-none' : ''}>
+                  <button
+                    onClick={() => triggerPipelineAnalysis(selectedPatientId)}
+                    disabled={isPipelineRunning || !selectedPatientId}
+                    className="flex h-9 flex-shrink-0 items-center justify-center rounded-full bg-emerald-600 px-4 text-sm font-semibold text-white transition-colors hover:bg-emerald-500 disabled:opacity-30 shadow-sm"
+                  >
+                    {isPipelineRunning ? "Running..." : "Analyze"}
+                  </button>
+                </HoverScale>
+              </div>
+
+              {/* + Custom patient */}
+              <HoverScale hoverScale={1.05} tapScale={0.95} className={isPipelineRunning ? 'pointer-events-none' : ''}>
+                <button onClick={() => setIsCustomModalOpen(true)} disabled={isPipelineRunning} title="Add Custom Patient Labs"
+                  className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full bg-slate-800 dark:bg-slate-700 text-white shadow-sm transition-colors hover:bg-slate-700 dark:hover:bg-slate-600 disabled:opacity-40">
+                  <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 4v16m8-8H4" />
+                  </svg>
+                </button>
+              </HoverScale>
+
+              {/* Info */}
+              <button onClick={() => setIsWelcomeOpen(true)} title="System Guide Overview"
+                className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-400 hover:bg-slate-50 hover:text-slate-600 transition-colors shadow-sm">
+                <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+              </button>
+
+              {/* Provider switcher */}
+              <ProviderSwitcher disabled={isPipelineRunning} onProviderChanged={() => refreshStatusRef.current()} />
+
+              {/* Theme toggle */}
+              <ThemeToggle />
+            </div>
+
+            {/* Mobile-only: Theme toggle + Info on the right of row 1 */}
+            <div className="flex lg:hidden items-center gap-2 flex-shrink-0">
+              <ThemeToggle />
+              <button onClick={() => setIsWelcomeOpen(true)} title="System Guide"
+                className="flex h-9 w-9 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-400 hover:bg-slate-50 hover:text-slate-600 transition-colors shadow-sm">
+                <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+              </button>
+            </div>
           </div>
 
-          {/* Controls row: selector pill + custom button + desktop info button */}
-          <div className="flex items-center gap-2 sm:gap-3 w-full lg:w-auto">
-            {/* Patient selector + Analyze button pill */}
-            <div className="flex flex-1 lg:flex-none flex-col sm:flex-row items-stretch sm:items-center gap-2 sm:gap-3 rounded-full border border-slate-200 bg-white p-1.5 sm:pl-5 sm:pr-1.5 sm:py-1.5 transition-all duration-200 hover:border-slate-300 hover:shadow-sm">
-              <label className="whitespace-nowrap text-xs font-semibold uppercase tracking-wider text-slate-400 px-1 sm:px-0">
-                Select Record:
-              </label>
+          {/* ── Row 2 (mobile only): Analyze pill · + · Provider switcher ── */}
+          <div className="flex lg:hidden items-center gap-2 pt-1.5 pb-0.5">
+            {/* Patient selector + Analyze pill */}
+            <div className="flex flex-1 items-center gap-1.5 rounded-[32px] border border-slate-200 bg-white dark:bg-slate-800/80 dark:border-slate-700/60 pl-2.5 pr-1 py-1 transition-all duration-200">
+              <label className="whitespace-nowrap text-[9px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500">Record:</label>
               {isPatientsLoading ? (
-                <span className="animate-pulse text-sm text-slate-400 font-medium flex-1 px-1">Index mapping...</span>
+                <span className="animate-pulse text-xs text-slate-400 font-medium flex-1">Mapping...</span>
               ) : (
-                <RecordSelect
-                  patients={patients}
-                  value={selectedPatientId}
-                  onChange={setSelectedPatientId}
-                  disabled={isPipelineRunning}
-                />
+                <RecordSelect patients={patients} value={selectedPatientId} onChange={setSelectedPatientId} disabled={isPipelineRunning} />
               )}
-              <HoverScale hoverScale={1.05} tapScale={0.95} className={`w-full sm:w-auto ${isPipelineRunning || !selectedPatientId ? 'pointer-events-none' : ''}`}>
+              <HoverScale hoverScale={1.05} tapScale={0.95} className={isPipelineRunning || !selectedPatientId ? 'pointer-events-none' : ''}>
                 <button
                   onClick={() => triggerPipelineAnalysis(selectedPatientId)}
                   disabled={isPipelineRunning || !selectedPatientId}
-                  className="flex h-11 w-full flex-shrink-0 items-center justify-center rounded-full bg-emerald-600 px-5 text-sm font-semibold text-white transition-colors hover:bg-emerald-500 disabled:opacity-30 shadow-sm"
+                  className="flex h-8 flex-shrink-0 items-center justify-center rounded-full bg-emerald-600 px-3.5 text-xs font-semibold text-white transition-colors hover:bg-emerald-500 disabled:opacity-30 shadow-sm"
                 >
-                  {isPipelineRunning ? "Running Swarm..." : "Analyze Dataset"}
+                  {isPipelineRunning ? "Running..." : "Analyze"}
                 </button>
               </HoverScale>
             </div>
 
-            {/* Custom Patient Trigger Button */}
+            {/* + Custom patient */}
             <HoverScale hoverScale={1.05} tapScale={0.95} className={isPipelineRunning ? 'pointer-events-none' : ''}>
-              <button
-                onClick={() => setIsCustomModalOpen(true)}
-                disabled={isPipelineRunning}
-                className="group flex h-11 flex-shrink-0 items-center justify-center gap-2 rounded-full border border-emerald-200 bg-emerald-50/60 pl-2 pr-5 text-emerald-700 shadow-sm transition-colors hover:border-emerald-300 hover:bg-emerald-50 disabled:opacity-40"
-                title="Add Custom Patient Labs"
-              >
-              <span className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-full bg-emerald-600 text-white transition-colors group-hover:bg-emerald-500">
-                <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <button onClick={() => setIsCustomModalOpen(true)} disabled={isPipelineRunning} title="Add Custom Patient"
+                className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full bg-slate-800 dark:bg-slate-700 text-white shadow-sm transition-colors hover:bg-slate-700 disabled:opacity-40">
+                <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 4v16m8-8H4" />
                 </svg>
-              </span>
-              <span className="text-sm font-semibold">Custom Patient</span>
               </button>
             </HoverScale>
 
-            {/* Desktop Info button */}
-            <button
-              onClick={() => setIsWelcomeOpen(true)}
-              className="hidden lg:block rounded-xl border border-slate-200 bg-white p-2.5 text-slate-400 hover:bg-slate-50 hover:text-slate-600 transition-colors shadow-sm flex-shrink-0"
-              title="System Guide Overview"
-            >
-              <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
-            </button>
-
-            {/* Provider switcher */}
-            <ProviderSwitcher
-              disabled={isPipelineRunning}
-              onProviderChanged={() => refreshStatusRef.current()}
-            />
-
-            {/* Dark mode toggle */}
-            <ThemeToggle />
+            {/* Provider / Model switcher */}
+            <ProviderSwitcher disabled={isPipelineRunning} onProviderChanged={() => refreshStatusRef.current()} />
           </div>
 
         </div>
       </header>
 
-      <main className="mx-auto flex max-w-[1600px] flex-col gap-3 p-4 sm:p-4 lg:p-12 pt-4 sm:pt-4 lg:pt-6">
+      <main className="mx-auto flex max-w-[1600px] flex-col gap-3 px-3 pt-3 pb-6 sm:p-4 lg:p-12 lg:pt-6">
         {/* Onboarding Welcome Modal */}
         <WelcomeModal isOpen={isWelcomeOpen} onClose={handleCloseWelcome} />
 
@@ -611,7 +608,7 @@ export default function DashboardPage() {
           />
         </div>
 
-        {/* Right Column: Console Output & Lab Panels */}
+        {/* Right Column: Console Output & Lab Panels — on mobile shows below diagnostics */}
         <div className="lg:col-span-3 flex flex-col gap-3 lg:pt-[58px]">
           <LabsPanel labs={labs} isLoading={isPipelineRunning} a1cPercent={demographics?.a1c_percent ?? null} />
           <LiveAgentTerminal

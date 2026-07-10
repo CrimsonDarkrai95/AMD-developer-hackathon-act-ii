@@ -82,6 +82,7 @@ export function SwarmDiagnosticsTabs({
   llmModel,
   benchmark,
 }: SwarmDiagnosticsTabsProps) {
+  const [expandedSpec, setExpandedSpec] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<"overview" | "analysis" | "logs" | "benchmark">("overview");
   const [expandedLogs, setExpandedLogs] = useState<Record<string, boolean>>({});
   const [copiedCode, setCopiedCode] = useState<string | null>(null);
@@ -139,23 +140,13 @@ export function SwarmDiagnosticsTabs({
               patientId={patientId}
             />
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-3">
-              <HoverScale className={`min-h-[620px] rounded-[32px] border border-slate-200 bg-white p-3 sm:p-4 overflow-hidden transition-colors duration-200 hover:border-slate-300 hover:shadow-md ${isLoading ? "lg:col-span-7 xl:col-span-8" : "lg:col-span-12"}`}>
+              <HoverScale className="min-h-[520px] md:h-[580px] rounded-[32px] border border-slate-200 bg-white p-3 sm:p-4 overflow-hidden transition-colors duration-200 hover:border-slate-300 hover:shadow-md lg:col-span-12">
                 <OrganRiskMap
                   specialists={specialists}
                   synthesis={synthesis}
                   isLoading={isLoading}
                 />
               </HoverScale>
-              {isLoading && (
-                <div className="lg:col-span-5 xl:col-span-4 flex flex-col justify-center gap-3">
-                  <SynthesisCallout
-                    specialists={specialists}
-                    synthesis={synthesis}
-                    isLoading={isLoading}
-                  />
-                  <ClinicalWarningLegend />
-                </div>
-              )}
             </div>
           </div>
         )}
@@ -177,28 +168,46 @@ export function SwarmDiagnosticsTabs({
                   const thresholdEntries = Object.entries(spec.thresholds_used || {});
                   const labEntries = Object.entries(spec.input_labs || {});
 
+                  const isExpanded = expandedSpec === spec.specialist;
+
                   return (
                     <HoverScale
                       key={spec.specialist}
-                      className="rounded-[32px] border border-slate-200 bg-white p-4 transition-colors duration-200 hover:border-slate-300 hover:shadow-md"
+                      className="rounded-[32px] border border-slate-200 bg-white p-4 transition-colors duration-200 hover:border-slate-300 hover:shadow-md cursor-pointer"
+                      onClick={() => setExpandedSpec(isExpanded ? null : spec.specialist)}
                     >
                       <div className="flex items-center justify-between border-b border-slate-100 pb-3 mb-4">
                         <div className="flex items-center gap-2">
                           <SpecialistIcon type={spec.specialist} className="h-5 w-5 text-slate-600" />
                           <h4 className="font-bold text-slate-800">{meta.label}</h4>
                         </div>
-                        {!spec.available ? (
-                          <span className="rounded-full px-3 py-1 text-xs font-semibold border bg-slate-100 text-slate-500 border-slate-200">
-                            &mdash; Unavailable
-                          </span>
-                        ) : (
-                          <span className={`rounded-full px-3 py-1 text-xs font-semibold border ${spec.flag
-                              ? "bg-rose-50 text-rose-700 border-rose-100/50"
-                              : "bg-emerald-50 text-emerald-700 border-emerald-100/50"
-                            }`}>
-                            {spec.flag ? "⚠️ Anomalies Flagged" : "✓ Clear of Early Flags"}
-                          </span>
-                        )}
+                        <div className="flex items-center gap-3">
+                          {!spec.available ? (
+                            <span className="rounded-full px-3 py-1 text-xs font-semibold border bg-slate-100 text-slate-500 border-slate-200">
+                              &mdash; Unavailable
+                            </span>
+                          ) : (
+                            <span className={`flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-semibold border ${spec.flag
+                                ? "bg-rose-50 text-rose-700 border-rose-100/50"
+                                : "bg-emerald-50 text-emerald-700 border-emerald-100/50"
+                              }`}>
+                              {spec.flag ? (
+                                <>
+                                  <svg className="h-3 w-3" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" /></svg>
+                                  Anomalies Flagged
+                                </>
+                              ) : (
+                                <>
+                                  <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" /></svg>
+                                  Clear of Early Flags
+                                </>
+                              )}
+                            </span>
+                          )}
+                          <svg className={`h-4 w-4 text-slate-400 transition-transform duration-200 ${isExpanded ? "rotate-180" : ""}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                          </svg>
+                        </div>
                       </div>
 
                       {!spec.available ? (
@@ -209,8 +218,8 @@ export function SwarmDiagnosticsTabs({
                           </p>
                         </div>
                       ) : (
-                        <div className="grid grid-cols-1 lg:grid-cols-12 gap-3">
-                          <div className="lg:col-span-6 space-y-2">
+                        <div className="space-y-4">
+                          <div className="space-y-2">
                             <h5 className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Clinical Reasoning</h5>
                             <p className="text-sm text-slate-600 leading-relaxed bg-slate-50/50 p-4 rounded-[32px] border border-slate-100">
                               {spec.reasoning}
@@ -223,42 +232,44 @@ export function SwarmDiagnosticsTabs({
                             </div>
                           </div>
 
-                          <div className="lg:col-span-6 space-y-4">
-                            <div className="space-y-2">
-                              <h5 className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Patient Values Referenced</h5>
-                              <div className="rounded-[32px] border border-slate-200 bg-slate-50/20 divide-y divide-slate-200">
-                                {labEntries.length === 0 ? (
-                                  <p className="p-3 text-xs text-slate-400 italic">No lab values recorded for this specialist.</p>
-                                ) : labEntries.map(([labKey, val]) => (
-                                  <div key={labKey} className="flex items-center justify-between px-4 py-2.5 text-sm">
-                                    <span className="font-semibold text-slate-700">{labLabels[labKey] || labKey}</span>
-                                    <span className="font-mono text-slate-600">{typeof val === "number" ? val.toFixed(val % 1 === 0 ? 0 : 2) : String(val)}</span>
-                                  </div>
-                                ))}
+                          {isExpanded && (
+                            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 pt-4 border-t border-slate-100">
+                              <div className="space-y-2">
+                                <h5 className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Patient Values Referenced</h5>
+                                <div className="rounded-[32px] border border-slate-200 bg-slate-50/20 divide-y divide-slate-200">
+                                  {labEntries.length === 0 ? (
+                                    <p className="p-3 text-xs text-slate-400 italic">No lab values recorded for this specialist.</p>
+                                  ) : labEntries.map(([labKey, val]) => (
+                                    <div key={labKey} className="flex items-center justify-between px-4 py-2.5 text-sm">
+                                      <span className="font-semibold text-slate-700">{labLabels[labKey] || labKey}</span>
+                                      <span className="font-mono text-slate-600">{typeof val === "number" ? val.toFixed(val % 1 === 0 ? 0 : 2) : String(val)}</span>
+                                    </div>
+                                  ))}
+                                </div>
                               </div>
-                            </div>
 
-                            <div className="space-y-2">
-                              <h5 className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">
-                                Cutoffs The Model Applied This Run
-                              </h5>
-                              <div className="rounded-[32px] border border-slate-200 bg-slate-50/20 divide-y divide-slate-200">
-                                {thresholdEntries.length === 0 ? (
-                                  <p className="p-3 text-xs text-slate-400 italic">
-                                    The model didn&apos;t report explicit numeric thresholds for this run &mdash; see the reasoning text above.
-                                  </p>
-                                ) : thresholdEntries.map(([label, val]) => (
-                                  <div key={label} className="flex items-center justify-between px-4 py-2.5 text-sm">
-                                    <span className="font-semibold text-slate-700">{label}</span>
-                                    <span className="font-mono text-slate-600">{typeof val === "number" ? val.toFixed(val % 1 === 0 ? 0 : 2) : String(val)}</span>
-                                  </div>
-                                ))}
+                              <div className="space-y-2">
+                                <h5 className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">
+                                  Cutoffs The Model Applied This Run
+                                </h5>
+                                <div className="rounded-[32px] border border-slate-200 bg-slate-50/20 divide-y divide-slate-200">
+                                  {thresholdEntries.length === 0 ? (
+                                    <p className="p-3 text-xs text-slate-400 italic">
+                                      The model didn&apos;t report explicit numeric thresholds for this run &mdash; see the reasoning text above.
+                                    </p>
+                                  ) : thresholdEntries.map(([label, val]) => (
+                                    <div key={label} className="flex items-center justify-between px-4 py-2.5 text-sm">
+                                      <span className="font-semibold text-slate-700">{label}</span>
+                                      <span className="font-mono text-slate-600">{typeof val === "number" ? val.toFixed(val % 1 === 0 ? 0 : 2) : String(val)}</span>
+                                    </div>
+                                  ))}
+                                </div>
+                                <p className="text-[10px] text-slate-400 leading-relaxed">
+                                  These are the exact cutoffs the model reported using this run &mdash; not a fixed reference table. They may vary patient to patient.
+                                </p>
                               </div>
-                              <p className="text-[10px] text-slate-400 leading-relaxed">
-                                These are the exact cutoffs the model reported using this run &mdash; not a fixed reference table. They may vary patient to patient.
-                              </p>
                             </div>
-                          </div>
+                          )}
                         </div>
                       )}
                     </HoverScale>
@@ -317,60 +328,71 @@ export function SwarmDiagnosticsTabs({
                       key={spec.specialist}
                       className="rounded-[32px] border border-slate-200 bg-white overflow-hidden transition-colors duration-200 hover:border-slate-300 hover:shadow-md"
                     >
-                      <button
-                        onClick={() => toggleLog(spec.specialist)}
-                        className="w-full flex items-center justify-between p-5 bg-slate-50/40 hover:bg-slate-50 border-b border-slate-100 transition-colors"
-                      >
-                        <div className="flex items-center gap-3">
-                          <SpecialistIcon type={spec.specialist} className="h-5 w-5 text-slate-600" />
-                          <div className="text-left">
-                            <h4 className="font-bold text-slate-800">{meta.label} Code Log</h4>
-                            <div className="flex items-center gap-2 text-xs font-mono text-slate-400 mt-0.5">
-                              <span>Duration: {spec.duration_ms} ms</span>
-                              <span>&middot;</span>
-                              <span>Mode: {spec.available ? "LLM Sandbox" : "Unavailable"}</span>
+                      <div className="p-5 bg-slate-50/40 border-b border-slate-100">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-3">
+                            <SpecialistIcon type={spec.specialist} className="h-5 w-5 text-slate-600" />
+                            <div className="text-left">
+                              <h4 className="font-bold text-slate-800">{meta.label} Code Log</h4>
+                              <div className="flex items-center gap-2 text-xs font-mono text-slate-400 mt-0.5">
+                                <span>Duration: {spec.duration_ms} ms</span>
+                              </div>
                             </div>
                           </div>
-                        </div>
-                        <div className="flex items-center gap-3">
-                          {spec.available ? (
-                            <span className="rounded-full bg-emerald-50 border border-emerald-100/50 px-2.5 py-0.5 text-[10px] font-bold text-emerald-700 uppercase tracking-wide">
-                              LLM
-                            </span>
-                          ) : (
-                            <span className="rounded-full bg-slate-100 border border-slate-200 px-2.5 py-0.5 text-[10px] font-bold text-slate-500 uppercase tracking-wide">
-                              Unavailable
-                            </span>
-                          )}
-                          <svg
-                            className={`h-5 w-5 text-slate-400 transition-transform duration-200 ${isExpanded ? "transform rotate-180" : ""}`}
-                            fill="none"
-                            viewBox="0 0 24 24"
-                            stroke="currentColor"
-                          >
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                          </svg>
-                        </div>
-                      </button>
-
-                      {isExpanded && (
-                        <div className="p-4 space-y-6 bg-white animate-slide-down">
-                          <div className="space-y-2">
-                            <h5 className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Execution Steps Trace</h5>
-                            <ol className="relative border-l border-slate-200 ml-2.5 space-y-4">
-                              {spec.steps.map((step, idx) => (
-                                <li key={idx} className="mb-4 ml-6">
-                                  <span className="absolute flex items-center justify-center w-5 h-5 bg-sky-50 text-sky-600 rounded-full -left-2.5 border border-sky-100 font-mono text-[10px] font-bold">
-                                    {idx + 1}
-                                  </span>
-                                  <p className="text-sm text-slate-600 font-medium leading-relaxed">{step}</p>
-                                </li>
-                              ))}
-                            </ol>
+                          <div className="flex items-center gap-3">
+                            {spec.available ? (
+                              <span className="rounded-full bg-indigo-50 border border-indigo-100/50 px-2.5 py-0.5 text-[10px] font-bold text-indigo-700 tracking-wide flex items-center gap-1.5 max-w-[250px]">
+                                <svg className="h-3 w-3 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                                </svg>
+                                <span className="truncate">
+                                  {llmModel ? llmModel.split('/').pop()?.toUpperCase() : (llmStatus?.toUpperCase() || "FEATHERLESS")}
+                                </span>
+                              </span>
+                            ) : (
+                              <span className="rounded-full bg-slate-100 border border-slate-200 px-2.5 py-0.5 text-[10px] font-bold text-slate-500 uppercase tracking-wide">
+                                Unavailable
+                              </span>
+                            )}
                           </div>
+                        </div>
 
-                          {spec.code_used && (
-                            <div className="space-y-2">
+                        <div className="mt-6 space-y-2">
+                          <h5 className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Execution Steps Trace</h5>
+                          <ol className="relative border-l border-slate-200 ml-2.5 space-y-4">
+                            {spec.steps.map((step, idx) => (
+                              <li key={idx} className="mb-4 ml-6">
+                                <span className="absolute flex items-center justify-center w-5 h-5 bg-sky-50 text-sky-600 rounded-full -left-2.5 border border-sky-100 font-mono text-[10px] font-bold">
+                                  {idx + 1}
+                                </span>
+                                <p className="text-sm text-slate-600 font-medium leading-relaxed">{step}</p>
+                              </li>
+                            ))}
+                          </ol>
+                        </div>
+                      </div>
+
+                      {spec.code_used && (
+                        <>
+                          <button
+                            onClick={() => toggleLog(spec.specialist)}
+                            className="w-full flex items-center justify-center p-3 text-xs font-semibold transition-colors border-t border-slate-100 dark:border-slate-700/50 bg-indigo-50/60 hover:bg-indigo-100/60 text-indigo-700 hover:text-indigo-900 dark:bg-indigo-900/20 dark:hover:bg-indigo-900/40 dark:text-indigo-300 dark:hover:text-indigo-100"
+                          >
+                            <div className="flex items-center gap-2">
+                              {isExpanded ? "Hide Executed Code" : "View Executed Sandbox Python Code"}
+                              <svg
+                                className={`h-4 w-4 transition-transform duration-200 ${isExpanded ? "rotate-180" : ""}`}
+                                fill="none"
+                                viewBox="0 0 24 24"
+                                stroke="currentColor"
+                              >
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                              </svg>
+                            </div>
+                          </button>
+
+                          {isExpanded && (
+                            <div className="p-4 space-y-2 bg-white animate-slide-down border-t border-slate-100">
                               <div className="flex items-center justify-between">
                                 <h5 className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Executed Sandbox Python Code</h5>
                                 <button
@@ -385,7 +407,7 @@ export function SwarmDiagnosticsTabs({
                               </pre>
                             </div>
                           )}
-                        </div>
+                        </>
                       )}
                     </HoverScale>
                   );
