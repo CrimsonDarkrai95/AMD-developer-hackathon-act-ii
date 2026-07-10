@@ -173,8 +173,7 @@ export function SwarmDiagnosticsTabs({
                   return (
                     <HoverScale
                       key={spec.specialist}
-                      className="rounded-[32px] border border-slate-200 bg-white p-4 transition-colors duration-200 hover:border-slate-300 hover:shadow-md cursor-pointer"
-                      onClick={() => setExpandedSpec(isExpanded ? null : spec.specialist)}
+                      className="rounded-[32px] border border-slate-200 bg-white p-4 transition-colors duration-200 hover:border-slate-300 hover:shadow-md"
                     >
                       <div className="flex items-center justify-between border-b border-slate-100 pb-3 mb-4">
                         <div className="flex items-center gap-2">
@@ -204,9 +203,6 @@ export function SwarmDiagnosticsTabs({
                               )}
                             </span>
                           )}
-                          <svg className={`h-4 w-4 text-slate-400 transition-transform duration-200 ${isExpanded ? "rotate-180" : ""}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                          </svg>
                         </div>
                       </div>
 
@@ -286,11 +282,22 @@ export function SwarmDiagnosticsTabs({
                             <p className="text-sm text-slate-600 leading-relaxed bg-slate-50/50 p-4 rounded-[32px] border border-slate-100">
                               {spec.reasoning}
                             </p>
-                            <div className="mt-3 flex items-center gap-2 text-xs font-semibold text-slate-400 font-mono">
-                              <span>Score Risk Level:</span>
-                              <span className={spec.flag ? "text-rose-600" : (spec.risk_score ?? 0) >= 0.4 ? "text-amber-600" : "text-emerald-600"}>
-                                {spec.risk_score !== null ? `${(spec.risk_score * 100).toFixed(0)}%` : "N/A"}
-                              </span>
+                            <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
+                              <div className="flex items-center gap-2 text-xs font-semibold text-slate-400 font-mono">
+                                <span>Score Risk Level:</span>
+                                <span className={spec.flag ? "text-rose-600" : (spec.risk_score ?? 0) >= 0.4 ? "text-amber-600" : "text-emerald-600"}>
+                                  {spec.risk_score !== null ? `${(spec.risk_score * 100).toFixed(0)}%` : "N/A"}
+                                </span>
+                              </div>
+                              <button
+                                onClick={() => setExpandedSpec(isExpanded ? null : spec.specialist)}
+                                className="flex items-center gap-1.5 rounded-full bg-slate-100 px-3 py-1.5 text-xs font-semibold text-slate-600 hover:bg-slate-200 transition-colors border border-slate-200"
+                              >
+                                {isExpanded ? "Less Details" : "More Details"}
+                                <svg className={`h-3.5 w-3.5 transition-transform duration-200 ${isExpanded ? "rotate-180" : ""}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                                </svg>
+                              </button>
                             </div>
                           </div>
 

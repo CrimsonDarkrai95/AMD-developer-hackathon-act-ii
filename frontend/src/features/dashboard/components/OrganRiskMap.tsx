@@ -160,8 +160,7 @@ export function OrganRiskMap({ specialists = [], synthesis, isLoading = false }:
         <div className="flex-1 min-w-0 flex flex-col gap-3 overflow-y-auto">
           {/* Executive Summary Compiling */}
           {synthesis && synthesis.available && highestRisk && (
-            <FadeInUp className="relative overflow-hidden rounded-xl border border-slate-200 bg-slate-50 p-5 pl-6 shadow-sm">
-              <div className="absolute inset-y-0 left-0 w-[3px] bg-rose-400" />
+            <FadeInUp className="relative overflow-hidden rounded-xl border border-slate-200 bg-slate-50 p-5 shadow-sm">
               <p className="text-xs uppercase tracking-[0.24em] font-semibold text-slate-400">
                 Highest Risk Trajectory
               </p>
@@ -217,7 +216,7 @@ export function OrganRiskMap({ specialists = [], synthesis, isLoading = false }:
                     }}
                     className={`w-full relative rounded-xl border p-4 flex flex-col justify-between transition-colors duration-200 cursor-pointer outline-none ${getRiskColorClass(
                       finding.risk_score
-                    )} ${isTopRisk ? "ring-2 ring-rose-300 dark:ring-rose-500/50" : ""} ${isActive ? "shadow-md dark:bg-slate-800/80 bg-slate-50" : "shadow-sm"}`}
+                    )} ${isActive ? "shadow-md dark:bg-slate-800/80 bg-slate-50" : "shadow-sm"}`}
                   >
 
                   <div className="flex items-start justify-between gap-2">

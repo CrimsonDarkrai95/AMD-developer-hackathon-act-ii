@@ -13,9 +13,9 @@ function buildRows(labs: Labs, a1cPercent?: number | null): LabRow[] {
   }
   rows.push(
     { label: "eGFR", value: labs.egfr, max: 120, unit: "", decimals: 1, normalLabel: "Normal \u2265 84.8" },
-    { label: "UACR", value: labs.uacr_mg_g, max: 300, unit: "mg/g", decimals: 1, normalLabel: "Normal \u2264 15.5 mg/g" },
+    { label: "UACR", value: labs.uacr_mg_g, max: 60, unit: "mg/g", decimals: 1, normalLabel: "Normal \u2264 15.5 mg/g" },
     { label: "Creatinine", value: labs.creatinine_mg_dl, max: 3, unit: "mg/dL", decimals: 2, normalLabel: "Normal \u2264 1.1 mg/dL" },
-    { label: "LDL cholesterol", value: labs.ldl_mg_dl, max: 300, unit: "mg/dL", decimals: 0, normalLabel: "Normal < 100 mg/dL" },
+    { label: "LDL cholesterol", value: labs.ldl_mg_dl, max: 200, unit: "mg/dL", decimals: 0, normalLabel: "Normal < 100 mg/dL" },
     { label: "HDL cholesterol", value: labs.hdl_mg_dl, max: 100, unit: "mg/dL", decimals: 0, normalLabel: "Normal \u2265 50 mg/dL" },
     { label: "Triglycerides", value: labs.triglycerides_mg_dl, max: 500, unit: "mg/dL", decimals: 0, normalLabel: "Normal < 150 mg/dL" },
     { label: "Systolic BP", value: labs.systolic_bp, max: 200, unit: "mmHg", decimals: 0, normalLabel: "Normal \u2264 130 mmHg" },
