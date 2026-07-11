@@ -61,7 +61,7 @@ def generate_brief(patient_row: dict, specialist_results: list, synthesis: dict)
     if not has_llm():
         return (
             f"Discovery Brief unavailable for patient {patient_id}: "
-            f"no LLM backend (Fireworks/Featherless) is currently reachable. "
+            f"no LLM backend (Fireworks/AMD) is currently reachable. "
             f"No report was generated - this is not a placeholder or partial brief."
         )
 

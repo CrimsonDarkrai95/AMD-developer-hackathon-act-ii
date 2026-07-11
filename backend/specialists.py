@@ -8,6 +8,7 @@ no LLM is reachable or code execution fails, the specialist reports itself as
 unavailable.
 """
 
+import random
 import time
 
 from agent_core import has_llm, call_llm, extract_code_block, run_agent_code
@@ -172,6 +173,29 @@ SPECIALIST_FIELDS = {
     "cardiovascular": CARDIO_FIELDS,
 }
 
+# All 4 specialists fan out from START in the same LangGraph invoke() call, so
+# without this they hit the active provider at essentially the same instant -
+# and each can retry on failure (see MAX_ATTEMPTS below), so a single patient
+# run can burst up to 8 near-simultaneous requests at the provider. Free/
+# low-tier API keys commonly rate-limit on requests-per-second, not just
+# per-minute, so that burst is a likely cause of the "some specialists
+# unavailable" pattern even though _post_with_retry() already backs off on
+# 429s - retrying inside the same burst window doesn't help if all 4 hit the
+# window at once.
+#
+# Staggering the START of each specialist's first attempt (small, fixed,
+# per-specialist offsets - not random) spreads the burst out over ~1.2s
+# without meaningfully slowing the overall pipeline (specialists still run
+# concurrently, they just don't all dial out in the same instant), and keeps
+# runs reproducible since the offsets are deterministic rather than
+# randomized per-run.
+STAGGER_DELAY_SECONDS = {
+    "renal": 0.0,
+    "neuropathy": 0.4,
+    "retinal": 0.8,
+    "cardiovascular": 1.2,
+}
+
 
 def _unavailable_result(name: str, start: float, input_labs: dict, reason: str) -> dict:
     """Return an unavailable specialist result with no fabricated risk values."""
@@ -194,13 +218,24 @@ def _unavailable_result(name: str, start: float, input_labs: dict, reason: str) 
 def run_specialist(name: str, patient: dict) -> dict:
     """Run one specialist through a live LLM and return its result."""
     system_prompt = SPECIALISTS[name]
-    start = time.perf_counter()
     input_labs = {k: patient[k] for k in SPECIALIST_FIELDS[name] if k in patient}
+
+    # Stagger this specialist's dial-out so all 4 don't hit the provider in
+    # the same instant (see STAGGER_DELAY_SECONDS above). Deliberately
+    # happens BEFORE has_llm()'s own connectivity ping too - if the delay
+    # were only around the scoring call, the status-check ping every
+    # specialist fires first would still burst all 4 at once. `start` is
+    # captured AFTER the stagger, not before, so duration_ms reflects this
+    # specialist's actual work time and doesn't make later-staggered
+    # specialists (e.g. cardiovascular at +1.2s) look artificially slower
+    # than renal in the Benchmark tab.
+    time.sleep(STAGGER_DELAY_SECONDS.get(name, 0.0))
+    start = time.perf_counter()
 
     if not has_llm():
         return _unavailable_result(
             name, start, input_labs,
-            reason="no LLM backend (Fireworks/Featherless) is currently reachable.",
+            reason="no LLM backend (Fireworks/AMD) is currently reachable.",
         )
 
     user_prompt = (
@@ -214,9 +249,10 @@ def run_specialist(name: str, patient: dict) -> dict:
     # with the real error shown back to it gives it a chance to self-correct
     # before honestly reporting the specialist as unavailable. Deliberately
     # kept at 2 total attempts, not more: all 4 specialists run in parallel,
-    # so every extra attempt multiplies concurrent calls against Featherless's
-    # rate limit - a 3rd attempt here previously caused OTHER specialists to
-    # start failing with connection/rate errors instead of fixing this one.
+    # so every extra attempt multiplies concurrent calls against the active
+    # provider's rate limit - a 3rd attempt here previously caused OTHER
+    # specialists to start failing with connection/rate errors instead of
+    # fixing this one.
     MAX_ATTEMPTS = 2
     try:
         prompt = user_prompt
@@ -231,6 +267,17 @@ def run_specialist(name: str, patient: dict) -> dict:
             if not is_error:
                 break
             last_reasoning = output["reasoning"]
+            # Brief, small, jittered pause before retrying. Without this, a
+            # failed attempt 1 re-dials instantly - and for renal in
+            # particular (0.0s stagger, so it's always first), that instant
+            # retry lands right in the window where neuropathy/retinal/
+            # cardiovascular are waking up from their own staggers and
+            # firing their first attempts, recreating the exact rate-limit
+            # burst the staggering was meant to avoid. This is separate from
+            # _post_with_retry's own 429 backoff in agent_core.py, which only
+            # covers retries WITHIN one HTTP call, not between specialist-
+            # level attempts.
+            time.sleep(0.5 + random.uniform(0, 0.4))
             prompt = (
                 f"{user_prompt}\n\nYour previous attempt failed with this error:\n"
                 f"{last_reasoning}\n"

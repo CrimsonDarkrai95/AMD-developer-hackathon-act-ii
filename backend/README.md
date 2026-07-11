@@ -17,9 +17,9 @@ Each specialist produces a risk score, a flag, and reasoning. A synthesis layer 
 
 - [main.py](main.py) — FastAPI entry point that exposes patient listing and analysis endpoints for the frontend
 - [run_pipeline.py](run_pipeline.py) — end-to-end pipeline runner for executing the workflow on one or more patients
-- [specialists.py](specialists.py) — specialist analysis logic and fallback rules for each risk domain
+- [specialists.py](specialists.py) — specialist system prompts, strict code-format rules, and orchestration for each risk domain
 - [synthesis_agent.py](synthesis_agent.py) — synthesis layer that turns specialist results into a simple referral-style recommendation
-- [agent_core.py](agent_core.py) — wrapper for LLM-based execution and safe fallback behavior
+- [agent_core.py](agent_core.py) — the two-provider LLM chain (AMD Gemma 4 26B via Ollama, Fireworks GLM 5.2) plus sandboxed code execution
 - [build_real_dataset.py](build_real_dataset.py) — prepares the patient dataset from source files
 - [real_patients.csv](real_patients.csv) — the patient dataset used by the pipeline
 
@@ -84,14 +84,14 @@ The API will be available at:
 - http://localhost:8000/api/patients
 - http://localhost:8000/api/analyze/<patient_id>
 
-## LLM and fallback behavior
+## LLM providers and honest-unavailable behavior
 
-The backend can run in two modes:
+There is no rule-based/deterministic fallback. The backend tries exactly two LLM providers, in order:
 
-- Deterministic fallback mode: works without an API key and uses rule-based logic.
-- LLM-assisted mode: if the relevant environment variables are present, the system can use an LLM backend for generation and execution.
+1. **Gemma 4 26B via Ollama**, running genuinely on-GPU - main provider. Currently points at the AMD-provided test notebook (MI300X/ROCm); swaps to our own AMD droplet for the final build (same GPU specs).
+2. **Fireworks GLM 5.2** (serverless, direct API call) - fallback provider, used only if AMD isn't reachable.
 
-If the LLM path fails at runtime, the system falls back gracefully so the demo remains usable.
+If neither provider is reachable, or the LLM-generated code fails after retries, the affected specialist/synthesis/report step honestly reports itself as "unavailable" instead of silently substituting canned or rule-based output. See `agent_core.py` for the provider chain and `HANDOFF.md` for the notebook/droplet setup steps.
 
 ## Current status
 

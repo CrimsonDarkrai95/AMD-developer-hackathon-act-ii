@@ -548,14 +548,20 @@ def analyze_patient_stream(patient_id: str):
 
 @app.get("/api/status", tags=["info"])
 def get_status():
-    """Returns the current LLM status of the backend (fireworks, featherless, or offline),
-    the specific route Featherless took (direct vs AMD notebook fallback), plus the
-    actual model string in use so the Benchmark tab can show e.g.
-    'Qwen/Qwen2.5-7B-Instruct via featherless (direct)' instead of just a provider name.
+    """Returns the current LLM status of the backend (fireworks, an AMD notebook
+    route, or offline), plus the actual model string in use so the Benchmark
+    tab can show e.g. 'Qwen/Qwen2.5-7B-Instruct via fireworks' instead of just
+    a provider name.
     """
-    from agent_core import FIREWORKS_MODEL, FEATHERLESS_MODEL, NOTEBOOK_OLLAMA_MODELS
+    from agent_core import (
+        FIREWORKS_FAST_SERVERLESS_MODEL,
+        AMD_OLLAMA_MODEL,
+    )
     provider = get_llm_status()
-    model_map = {"fireworks": FIREWORKS_MODEL, "featherless": FEATHERLESS_MODEL, **NOTEBOOK_OLLAMA_MODELS}
+    model_map = {
+        "fireworks_serverless_fast": FIREWORKS_FAST_SERVERLESS_MODEL,
+        "amd_notebook_gemma4": AMD_OLLAMA_MODEL,
+    }
     return {
         "llm_status": "offline" if provider is None else provider,
         "provider_detail": get_provider_detail(),
@@ -564,31 +570,26 @@ def get_status():
 
 
 # Human-facing labels + descriptions for the provider switcher dropdown.
-# "amd_notebook_qwen"/"amd_notebook_gemma" both route through
-# amd_compute/amd_notebook_relay_server.ipynb on the AMD Developer Cloud
-# instance, but run that model LOCALLY via Ollama on the AMD GPU - genuine
-# on-device compute, not a hosted-API relay. Requires that notebook's last
-# cell to be running (with Ollama serving qwen2.5-coder:7b/gemma2).
+# Written to give someone a real reason to pick one deliberately, not just
+# restate the label - AMD for verified on-hardware inference, Fireworks for
+# raw model quality/speed. "amd_notebook_gemma4" is the main provider:
+# Gemma 4 26B running genuinely on-GPU via Ollama on an AMD MI300X (ROCm) -
+# currently the AMD-provided test notebook, swapping to our own AMD droplet
+# for the final build (same GPU specs). Requires AMD_OLLAMA_URL to point at
+# a live Ollama instance (tunnel/firewalled, since Ollama has no built-in
+# auth). "Ollama" itself is left out of the label - it's the serving layer,
+# not something someone choosing a provider needs to know.
 _PROVIDER_LABELS = {
-    "fireworks": {
-        "label": "Fireworks: gpt-oss-120b",
-        "description": "Main provider. Hosted API, real credits.",
-    },
-    # FEATHERLESS (TESTING ONLY) - delete this entry when removing Featherless
-    # (see backend/DELETE_FEATHERLESS.md).
-    "featherless": {
-        "label": "Featherless (Direct)",
-        "description": "Calls api.featherless.ai directly. Testing-only fallback.",
-    },
-    "amd_notebook_qwen": {
-        "label": "AMD Notebook: Qwen",
-        "description": "Runs Qwen2.5-Coder 7B on AMD Developer Cloud's GPU.",
+    "amd_notebook_gemma4": {
+        "label": "AMD MI300X: Gemma 4 26B",
+        "description": "Genuine on-GPU horsepower - Gemma 4 running live on AMD's MI300X, no third-party API in the loop.",
         "amd_compute": True,
+        "model_family": "gemma",
     },
-    "amd_notebook_gemma": {
-        "label": "AMD Notebook: Gemma",
-        "description": "Runs Gemma 2 on AMD Developer Cloud's GPU.",
-        "amd_compute": True,
+    "fireworks_serverless_fast": {
+        "label": "Fireworks: GLM 5.2",
+        "description": "Strong benchmarks (SWE-bench 77.8%) and fast, reliable answers via GLM 5.2.",
+        "model_family": "glm",
     },
 }
 
@@ -605,12 +606,12 @@ def list_providers():
     whether the relevant env var(s) are actually set - NOT whether the provider
     is reachable right now (that's what /api/status's connectivity check is for).
     """
-    from agent_core import FIREWORKS_API_KEY, FEATHERLESS_API_KEY, NOTEBOOK_RELAY_URL
+    from agent_core import FIREWORKS_API_KEY, AMD_OLLAMA_URL
     configured_map = {
-        "fireworks": bool(FIREWORKS_API_KEY),
-        "featherless": bool(FEATHERLESS_API_KEY),  # FEATHERLESS (TESTING ONLY) - delete this line too
-        "amd_notebook_qwen": bool(NOTEBOOK_RELAY_URL),
-        "amd_notebook_gemma": bool(NOTEBOOK_RELAY_URL),
+        "fireworks_serverless_fast": bool(FIREWORKS_API_KEY),
+        # Needs no Fireworks credentials at all - it's a fully separate,
+        # genuine on-GPU path (AMD droplet + Ollama).
+        "amd_notebook_gemma4": bool(AMD_OLLAMA_URL),
     }
     return {
         "providers": [
@@ -620,6 +621,7 @@ def list_providers():
                 "description": _PROVIDER_LABELS[pid]["description"],
                 "configured": configured_map[pid],
                 "amd_compute": _PROVIDER_LABELS[pid].get("amd_compute", False),
+                "model_family": _PROVIDER_LABELS[pid].get("model_family"),
             }
             for pid in PROVIDER_IDS
         ],
@@ -629,10 +631,9 @@ def list_providers():
 
 @app.post("/api/providers/select", tags=["info"])
 def select_provider(payload: ProviderSelection):
-    """Manually pins the backend to a single provider ("featherless", "fireworks",
-    "amd_notebook_qwen", or "amd_notebook_gemma"), or pass provider=null to
-    return to the normal auto-failover chain. Takes effect immediately for the
-    next LLM call.
+    """Manually pins the backend to a single provider ("fireworks_serverless_fast"
+    or "amd_notebook_gemma4"), or pass provider=null to return to the normal
+    auto-failover chain. Takes effect immediately for the next LLM call.
     """
     if payload.provider is not None and payload.provider not in PROVIDER_IDS:
         raise HTTPException(
@@ -649,4 +650,4 @@ def select_provider(payload: ProviderSelection):
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run("main:app", host="127.0.0.1", port=8000, reload=True)
+    uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)

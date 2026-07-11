@@ -2,7 +2,7 @@
 backend/export_reasoning_batch.py
 ----------------------------------
 Runs the live pipeline (backend/run_pipeline.py -> specialists.py ->
-agent_core.py, i.e. the real Featherless-backed multi-agent swarm) over a
+agent_core.py, i.e. the real live-LLM-backed multi-agent swarm) over a
 batch of patients and exports each specialist's (patient_id, specialist,
 reasoning, risk_score, thresholds_used) to a JSON file.
 
@@ -11,9 +11,10 @@ it's the "export ahead of time from run_pipeline.py" step referenced in
 amd_compute/README.md and in section 5 of specialist_eval_and_embeddings.ipynb.
 The notebook then loads this file and runs a LOCAL model on the AMD GPU to
 QA-score the reasoning text - so the AMD compute step is doing genuine work
-on genuine live-backend output, not just re-issuing the same Featherless call.
+on genuine live-backend output, not just re-issuing the same call.
 
-Usage (from the backend/ directory, with your .env / FEATHERLESS_API_KEY set):
+Usage (from the backend/ directory, with your .env set - either
+FIREWORKS_API_KEY or AMD_OLLAMA_URL, whichever provider you want live):
     python export_reasoning_batch.py --n 8
     python export_reasoning_batch.py --patient P93758 --patient P10442
 
@@ -22,7 +23,7 @@ Output:
 
 Upload that JSON file to the AMD Jupyter environment alongside the notebook
 (or re-run this script from a notebook cell if the AMD instance can reach
-Featherless directly) before running section 5 of
+the backend's provider directly) before running section 5 of
 specialist_eval_and_embeddings.ipynb.
 """
 
@@ -42,8 +43,8 @@ OUT_PATH = BACKEND_DIR.parent / "amd_compute" / "reasoning_batch_export.json"
 def export(patient_ids=None, n=8):
     if not has_llm():
         raise SystemExit(
-            "No LLM backend reachable (check FEATHERLESS_API_KEY in backend/.env). "
-            "This script needs the live pipeline to actually run."
+            "No LLM backend reachable (check FIREWORKS_API_KEY or AMD_OLLAMA_URL "
+            "in backend/.env). This script needs the live pipeline to actually run."
         )
 
     df = pd.read_csv(BACKEND_DIR / "real_patients.csv")

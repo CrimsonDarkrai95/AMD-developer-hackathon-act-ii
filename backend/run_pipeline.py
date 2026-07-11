@@ -26,7 +26,7 @@ from langgraph.graph import StateGraph, START, END
 
 from specialists import run_specialist
 from synthesis_agent import synthesize
-from agent_core import has_llm
+from agent_core import has_llm, get_llm_status
 
 BACKEND_DIR = Path(__file__).resolve().parent
 
@@ -94,6 +94,18 @@ def build_graph():
 
 
 def run_patient(app, patient_row: dict, verbose=True):
+    # Warm the provider-status cache BEFORE the graph fans out to the 4
+    # parallel specialist threads. Without this, whichever specialist has
+    # the shortest stagger delay (renal, at 0.0s - see STAGGER_DELAY_SECONDS
+    # in specialists.py) is the one left holding a cold cache: its first
+    # has_llm() call has to run the full connectivity-check chain itself
+    # (Tier 1 raise, then a real network round-trip to Tier 2) inline,
+    # directly ahead of its own actual scoring call, while the other 3
+    # specialists wake up from their staggers straight into an already-warm
+    # cache. Doing the check once, synchronously, here removes that
+    # asymmetry entirely instead of just reducing it.
+    get_llm_status()
+
     if verbose:
         from agent_core import get_provider_detail
         provider = get_provider_detail()
@@ -127,6 +139,13 @@ def run_patient_streaming(app, patient_row: dict):
     all 4 specialists fan out from START in parallel - it'll be whichever
     finishes first. Consumers should key off node_name, not assume order.
     """
+    # Same pre-warm as run_patient() above, and just as important here since
+    # this is the path the actual frontend/SSE flow uses (see main.py's
+    # _stream_pipeline_events) - without it, renal (0.0s stagger) is the one
+    # that silently eats the cold connectivity-check cost every time the
+    # cache expires.
+    get_llm_status()
+
     for chunk in app.stream({"patient": patient_row}, stream_mode="updates"):
         # chunk is a dict like {"renal": {"renal_result": {...}}}
         for node_name, node_output in chunk.items():

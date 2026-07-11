@@ -3,12 +3,20 @@ agent_core.py
 --------------
 Handles calling an LLM agent and executing Python analysis code the agent writes.
 
-Uses Fireworks AI as the main provider and supports AMD notebook relay providers.
+Two providers only:
+  1. amd_notebook_gemma4       - Gemma 4 26B, GENUINE on-GPU inference via Ollama
+                                  on an AMD MI300X (ROCm). Main provider. Currently
+                                  pointed at the AMD-provided test notebook; swaps to
+                                  our own AMD droplet for the final build (same GPU
+                                  specs, just a different AMD_OLLAMA_URL).
+  2. fireworks_serverless_fast - Fireworks GLM 5.2 (DIRECT, pay-per-token, serverless).
+                                  Fallback provider.
 Provider connectivity is verified with cached checks.
 """
 
 import os
 import random
+import threading
 import time
 import traceback
 
@@ -18,25 +26,33 @@ try:
 except ImportError:
     pass  # dotenv not installed - env vars can still be set manually
 
-# Fireworks AI - the MAIN, required LLM provider for the live backend.
-# Pulled from the FIREWORKS_API_KEY environment variable (set it in
-# backend/.env, which is gitignored - see backend/.env.example for the
+# Fireworks AI - pulled from the FIREWORKS_API_KEY environment variable (set
+# it in backend/.env, which is gitignored - see backend/.env.example for the
 # expected keys).
 FIREWORKS_API_KEY = os.environ.get("FIREWORKS_API_KEY", "")
-FIREWORKS_MODEL = os.environ.get("FIREWORKS_MODEL", "accounts/fireworks/models/llama-v3p1-70b-instruct")
 FIREWORKS_URL = "https://api.fireworks.ai/inference/v1/chat/completions"
 
-# NOTEBOOK_RELAY_URL - the AMD Developer Cloud notebook relay endpoint,
-# exposed by amd_compute/amd_notebook_relay_server.ipynb. KEEP THIS VAR when
-# deleting Featherless: it is used by call_amd_notebook_qwen/gemma below for
-# genuine on-GPU inference, unrelated to Featherless. Only its use *inside*
-# call_featherless() as a fallback goes away with that block.
-NOTEBOOK_RELAY_URL = os.environ.get("NOTEBOOK_RELAY_URL", "")
+# --- Fallback provider: Fireworks serverless, GLM 5.2 (DIRECT, pay-per-token) ---
+# Highest Intelligence Index on Fireworks (51) and leads coding benchmarks
+# (SWE-bench Verified 77.8%), which matters directly here since every
+# specialist call is generating executable Python with fairly strict
+# formatting/numeric-reasoning constraints (see STRICT_CODE_FORMAT_INSTRUCTIONS
+# in specialists.py) - a stronger model means fewer malformed-code retries.
+FIREWORKS_FAST_SERVERLESS_MODEL = os.environ.get(
+    "FIREWORKS_FAST_SERVERLESS_MODEL", "accounts/fireworks/models/glm-5p2"
+)
 
-# FEATHERLESS (TESTING ONLY) - a testing-only secondary provider removed before final submission.
-FEATHERLESS_API_KEY = os.environ.get("FEATHERLESS_API_KEY", "")
-FEATHERLESS_MODEL = os.environ.get("FEATHERLESS_MODEL", "Qwen/Qwen2.5-7B-Instruct")
-FEATHERLESS_URL = "https://api.featherless.ai/v1/chat/completions"
+# --- Main provider: genuine on-GPU AMD compute (ROCm + Ollama, Gemma 4 26B MoE) ---
+# Actually loads and runs Gemma 4 26B locally on an AMD MI300X (ROCm) via
+# Ollama's OpenAI-compatible /v1/chat/completions endpoint - real on-GPU
+# inference, no Fireworks call involved at all. Right now AMD_OLLAMA_URL
+# points at the AMD-provided test notebook; for the final build this swaps
+# to our own AMD droplet - same GPU specs (MI300X), just a different URL.
+# Point AMD_OLLAMA_URL at a tunnel/firewalled address only - Ollama has no
+# built-in auth, so port 11434 must never be exposed directly to the public
+# internet (see HANDOFF.md).
+AMD_OLLAMA_URL = os.environ.get("AMD_OLLAMA_URL", "")
+AMD_OLLAMA_MODEL = os.environ.get("AMD_OLLAMA_MODEL", "gemma4:26b")
 
 # Cache connectivity checks so we don't ping the provider on every single
 # specialist call. A success is cached for a long time (a working provider
@@ -47,11 +63,26 @@ _STATUS_CACHE = {"checked_at": 0.0, "provider": None}
 _SUCCESS_TTL_SECONDS = 300   # re-verify a healthy provider every 5 minutes
 _FAILURE_TTL_SECONDS = 15    # retry quickly after a failure instead of forever
 
-# Tracks which literal route served the most recent AMD-notebook-relay call
-# (e.g. which Ollama model), so the Benchmark tab / console output can show
-# specifically which route served the last request rather than just a
-# provider name.
-_FEATHERLESS_ROUTE = {"route": None}
+# Guards _STATUS_CACHE. The 4 specialist nodes run in real parallel threads
+# (LangGraph fans them out from START), and STAGGER_DELAY_SECONDS in
+# specialists.py only staggers each specialist's OWN dial-out - it doesn't
+# stop two specialists from both observing a cold/expired cache at once and
+# each independently re-running the full connectivity-check chain
+# concurrently (one provider's raise-if-unconfigured check -> the other's
+# real network round-trip). Without a
+# lock, the specialist with the shortest stagger delay (renal, at 0.0s) is
+# the one most likely to be the sole thread that pays this cold-check cost
+# undefended, right before its own real scoring call - and if that scoring
+# call then lands in the exact window where the other 3 specialists wake up
+# from their staggers and fire, it has no backoff of its own. The lock
+# doesn't remove that latency, but it stops multiple threads from paying it
+# redundantly/concurrently and stepping on each other's cache writes.
+_STATUS_LOCK = threading.Lock()
+
+# Tracks which literal model/route served the most recent AMD on-GPU call,
+# so the Benchmark tab / console output can show specifically which route
+# served the last request rather than just a provider name.
+_AMD_ROUTE = {"route": None}
 
 # Manual provider override (set via POST /api/providers/select from the
 # frontend's provider switcher, or set_forced_provider() directly). When
@@ -61,8 +92,15 @@ _FEATHERLESS_ROUTE = {"route": None}
 # the UI actually guarantees Fireworks is what runs, not just "tried first".
 _FORCED_PROVIDER = {"value": None}
 
-# Provider IDs in display order. AMD notebook providers are manual-only.
-PROVIDER_IDS = ["fireworks", "featherless", "amd_notebook_qwen", "amd_notebook_gemma"]
+# Provider IDs in display order.
+#   1. amd_notebook_gemma4       - GENUINE on-GPU inference: Gemma 4 26B via
+#                                  Ollama on an AMD MI300X. Main provider.
+#   2. fireworks_serverless_fast - Fireworks GLM 5.2 (DIRECT, serverless).
+#                                  Fallback if AMD isn't reachable.
+PROVIDER_IDS = [
+    "amd_notebook_gemma4",
+    "fireworks_serverless_fast",
+]
 
 # Counts actual call_llm() invocations (including retries), so the Benchmark tab
 # can show a real number. Reset at the start of each /api/analyze request.
@@ -87,6 +125,91 @@ def get_llm_call_count() -> int:
 # (still lets it explore reasonable cutoff choices) while cutting a lot of
 # run-to-run noise in the computed risk_score/flag.
 SCORING_TEMPERATURE = 0.2
+
+# Max tokens for a specialist/synthesis call. Bumped up from 1000 - GLM 5.2 is
+# a reasoning model, and Fireworks' own docs note that for some models the
+# reasoning trace lands directly in `content` (no separate `reasoning_content`
+# field) rather than being split out - see docs.fireworks.ai/guides/reasoning.
+# At 1000 tokens, GLM 5.2 was spending its entire budget on an inline
+# "let me think about this..." preamble and never reaching the actual code
+# fence, so `extract_code_block()` had nothing to extract but plain English -
+# which chokes Python's parser (that's the "unterminated string literal"
+# errors: a sentence like "the patient's data" reads as an unterminated
+# string to the tokenizer). Applies to EVERY provider/model here (Gemma 4
+# included, not just GLM) - non-reasoning models don't need the extra room
+# for a thinking trace, but a generous ceiling costs nothing if the model
+# doesn't use it (this only caps the max the model COULD generate, it
+# doesn't pad every response out to this length) and means one code-format
+# retry on a verbose response doesn't run out of room a second time either.
+SCORING_MAX_TOKENS = 2500
+
+# AMD/Gemma-specific override: this Gemma 4 26B build produces a visible,
+# unprompted internal reasoning preamble on EVERY call (e.g. "Thinking...
+# Option 1: 'Ok'... done thinking.") before it gets to the actual answer -
+# unlike GLM, this can't be shortened via `reasoning_effort` (Ollama's Gemma
+# doesn't accept that param at all, so _is_reasoning_model() below
+# deliberately excludes it). That preamble was eating enough of the shared
+# SCORING_MAX_TOKENS budget that the actual Python code got cut off mid-line
+# for the more complex specialist prompts (confirmed: a real run failed with
+# `SyntaxError: '(' was never closed`, i.e. the code stopped generating
+# before the expression it was writing was even finished - not a formatting
+# mistake, a truncation). Running on our own GPU with no per-token billing,
+# so a generous ceiling here costs nothing if unused.
+AMD_MAX_TOKENS = 6000
+
+# Explicit context window for the AMD Ollama call. Without this, Ollama
+# loads the model at its FULL native context (confirmed via `ollama ps` on
+# the droplet: CONTEXT showed 262144) - and since Ollama reserves a KV-cache
+# slot sized to num_ctx for EVERY parallel request slot, a 262144-token
+# reservation per slot is almost certainly why Ollama was auto-selecting
+# OLLAMA_NUM_PARALLEL=1 despite ~192GB of spare VRAM: 4 slots at that size
+# doesn't comfortably fit even here, so it falls back to running requests
+# one at a time - meaning our 4 "parallel" specialist calls (LangGraph fans
+# them out from START) were actually queueing at the model server, not
+# running concurrently. A specialist prompt (system prompt + patient dict +
+# one retry round) is realistically under ~3000 tokens in, a few hundred
+# out - 8192 leaves generous headroom while shrinking the per-slot
+# reservation by ~32x, which should let Ollama actually run requests in
+# parallel instead of queuing them.
+AMD_NUM_CTX = 8192
+
+# Passed as `reasoning_effort` on calls to models Fireworks marks as
+# reasoning-capable (currently: anything with "glm" in its model string - see
+# _is_reasoning_model below). "low" keeps the model's internal reasoning
+# trace short so it reaches the required code block well within
+# SCORING_MAX_TOKENS, instead of burning the whole budget thinking out loud.
+# Non-reasoning models (e.g. Gemma 4) don't accept this param, so it's only
+# ever attached when _is_reasoning_model(model) is True.
+REASONING_EFFORT = "low"
+
+
+def _is_reasoning_model(model_string: str) -> bool:
+    """True for model strings Fireworks marks as reasoning-capable (GLM 5.x
+    at the time of writing - see docs.fireworks.ai/guides/reasoning). Used to
+    decide whether to attach `reasoning_effort` to a request: sending that
+    param to a non-reasoning model can be rejected/ignored depending on the
+    model, so it's only attached where it's actually meaningful.
+    """
+    return "glm" in model_string.lower()
+
+
+def _chat_json_body(model: str, system_prompt: str, user_prompt: str) -> dict:
+    """Builds the standard chat-completions request body shared by both
+    call_* functions below, so the reasoning-effort/max-tokens fix can't
+    silently drift out of sync between the Fireworks and AMD tiers.
+    """
+    body = {
+        "model": model,
+        "max_tokens": SCORING_MAX_TOKENS,
+        "temperature": SCORING_TEMPERATURE,
+        "messages": [
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": user_prompt},
+        ],
+    }
+    if _is_reasoning_model(model):
+        body["reasoning_effort"] = REASONING_EFFORT
+    return body
 
 
 def _post_with_retry(url: str, headers: dict, json_body: dict, timeout: int = 60) -> "requests.Response":
@@ -117,149 +240,99 @@ def _post_with_retry(url: str, headers: dict, json_body: dict, timeout: int = 60
     raise last_exc if last_exc else RuntimeError("Request failed after retries.")
 
 
-def call_fireworks(system_prompt: str, user_prompt: str) -> str:
+def call_fireworks_serverless_fast(system_prompt: str, user_prompt: str) -> str:
+    """Fallback provider: Fireworks serverless, GLM 5.2 (DIRECT, pay-per-token,
+    no GPU-hour billing)."""
     if not FIREWORKS_API_KEY:
         raise RuntimeError("FIREWORKS_API_KEY not set.")
     resp = _post_with_retry(
         FIREWORKS_URL,
         headers={"Authorization": f"Bearer {FIREWORKS_API_KEY}", "Content-Type": "application/json"},
-        json_body={
-            "model": FIREWORKS_MODEL,
-            "max_tokens": 1000,
-            "temperature": SCORING_TEMPERATURE,
-            "messages": [
-                {"role": "system", "content": system_prompt},
-                {"role": "user", "content": user_prompt},
-            ],
-        },
+        json_body=_chat_json_body(FIREWORKS_FAST_SERVERLESS_MODEL, system_prompt, user_prompt),
         timeout=60,
     )
     return resp.json()["choices"][0]["message"]["content"]
 
 
-# ============================================================================
-# === FEATHERLESS (TESTING ONLY) — DELETE THIS ENTIRE FUNCTION BEFORE     ===
-# === FINAL SUBMISSION. See DELETE_FEATHERLESS.md for the full checklist. ===
-# ============================================================================
-def call_featherless(system_prompt: str, user_prompt: str) -> str:
-    """Calls Featherless for testing, falling back to the notebook relay if needed."""
-    if not FEATHERLESS_API_KEY:
-        raise RuntimeError("FEATHERLESS_API_KEY not set.")
+def call_amd_notebook_gemma4(system_prompt: str, user_prompt: str) -> str:
+    """Main provider: GENUINE on-GPU AMD compute - Gemma 4 26B (MoE) running
+    locally via Ollama on an AMD MI300X (ROCm).
 
-    messages = [
-        {"role": "system", "content": system_prompt},
-        {"role": "user", "content": user_prompt},
-    ]
-
-    try:
-        resp = _post_with_retry(
-            FEATHERLESS_URL,
-            headers={"Authorization": f"Bearer {FEATHERLESS_API_KEY}", "Content-Type": "application/json"},
-            json_body={
-                "model": FEATHERLESS_MODEL,
-                "max_tokens": 1000,
-                "temperature": SCORING_TEMPERATURE,
-                "messages": messages,
-            },
-            timeout=30,
-        )
-        _FEATHERLESS_ROUTE["route"] = "direct"
-        return resp.json()["choices"][0]["message"]["content"]
-    except Exception:
-        # Direct call failed - fall back to the AMD notebook relay if one is
-        # configured and reachable. If it isn't, re-raise so call_llm() can
-        # move on to the next provider in _PROVIDERS (Fireworks).
-        if not NOTEBOOK_RELAY_URL:
-            raise
-        resp = _post_with_retry(
-            NOTEBOOK_RELAY_URL,
-            headers={"Content-Type": "application/json"},
-            json_body={
-                "model": FEATHERLESS_MODEL,
-                "max_tokens": 1000,
-                "temperature": SCORING_TEMPERATURE,
-                "messages": messages,
-            },
-            timeout=30,
-        )
-        _FEATHERLESS_ROUTE["route"] = "notebook_fallback"
-        return resp.json()["choices"][0]["message"]["content"]
-# === END FEATHERLESS (TESTING ONLY) call_featherless() ===
-# ============================================================================
-
-
-# Model tag each Ollama-backed live provider sends to the notebook relay.
-# amd_notebook_relay_server.ipynb checks incoming "model" against this set:
-# if it matches, the relay runs that model LOCALLY via Ollama on the AMD
-# instance's GPU (genuine on-device compute) instead of forwarding to
-# Featherless. Keys match PROVIDER_IDS below 1:1.
-#
-# "qwen2.5-coder:7b" (swapped from "llama3") - see PROVIDER_IDS comment above
-# for why: this pipeline needs a model that reliably writes valid, executable
-# Python, not just reasonable clinical judgment in prose.
-NOTEBOOK_OLLAMA_MODELS = {
-    "amd_notebook_qwen": "qwen2.5-coder:7b",
-    "amd_notebook_gemma": "gemma2",
-}
-
-
-def call_amd_notebook_ollama(system_prompt: str, user_prompt: str, model_name: str) -> str:
-    """Calls the AMD Developer Cloud notebook relay and asks it to run
-    `model_name` LOCALLY via Ollama on that instance's GPU - this is genuine
-    live AMD compute, not a Featherless relay. Used when a user manually picks
-    "AMD Notebook - Llama 3" or "AMD Notebook - Gemma 2" in the provider
-    switcher. No fallback after this - if the notebook or Ollama isn't up,
-    this raises and the UI shows the provider as unreachable, same as any
-    other manually-forced provider.
+    Hits Ollama's NATIVE /api/chat endpoint, NOT the OpenAI-compatible
+    /v1/chat/completions one. Reason: Gemma 4 has a confirmed Ollama bug on
+    the OpenAI-compat endpoint (ollama/ollama#15288) where the "think"/
+    "reasoning_effort" controls aren't honored - generated text lands in a
+    separate "reasoning" field instead of "content", and there's no way to
+    turn off Gemma's always-on reasoning preamble through that path. The
+    native endpoint honors `"think": false` correctly for this model, which
+    is what actually kills the preamble that was eating the AMD_MAX_TOKENS
+    budget and truncating generated code. `AMD_OLLAMA_URL` is still configured
+    as the /v1/chat/completions URL (per HANDOFF.md / .env) - the native path
+    is derived from it below so no .env change is needed.
     """
-    if not NOTEBOOK_RELAY_URL:
+    if not AMD_OLLAMA_URL:
         raise RuntimeError(
-            "NOTEBOOK_RELAY_URL not set - start "
-            "amd_compute/amd_notebook_relay_server.ipynb on your AMD Developer "
-            "Cloud instance (with Ollama serving llama3/gemma2) and set "
-            "NOTEBOOK_RELAY_URL in backend/.env."
+            "AMD_OLLAMA_URL not set - launch the AMD-provided GPU notebook from "
+            "the team portal, `ollama pull gemma4:26b` there, and set "
+            "AMD_OLLAMA_URL in backend/.env to its "
+            "http://<tunnel-or-ip>:11434/v1/chat/completions URL. See "
+            "HANDOFF.md for the full setup steps."
         )
+    native_url = AMD_OLLAMA_URL
+    if native_url.endswith("/v1/chat/completions"):
+        native_url = native_url[: -len("/v1/chat/completions")] + "/api/chat"
     resp = _post_with_retry(
-        NOTEBOOK_RELAY_URL,
+        native_url,
         headers={"Content-Type": "application/json"},
         json_body={
-            "model": model_name,
-            "max_tokens": 1000,
-            "temperature": SCORING_TEMPERATURE,
+            "model": AMD_OLLAMA_MODEL,
             "messages": [
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": user_prompt},
             ],
+            # The actual fix: native /api/chat honors this for Gemma 4,
+            # unlike /v1/chat/completions (ollama/ollama#15288). Disables
+            # the always-on reasoning preamble entirely.
+            "think": False,
+            "stream": False,
+            # Unquoted int, not the string "-1" - the native /api/chat schema
+            # parses this as a Go time.Duration when it's a string (rejecting
+            # "-1" with "time: missing unit in duration" - confirmed via a
+            # live curl against the droplet), but accepts a bare integer
+            # meaning "never unload" directly. The OpenAI-compat endpoint we
+            # used to call was more lenient about this; the native one isn't.
+            "keep_alive": -1,
+            # Native endpoint takes generation params under "options", not
+            # top-level "temperature"/"max_tokens" like the OpenAI-compat one.
+            "options": {
+                "temperature": SCORING_TEMPERATURE,
+                "num_predict": AMD_MAX_TOKENS,
+                "num_ctx": AMD_NUM_CTX,
+            },
         },
-        # Local on-GPU generation is slower than a hosted API - give it more room.
-        timeout=90,
+        # Real on-GPU generation (not a thin relay) - give it more room than
+        # the Fireworks DIRECT tier.
+        timeout=180,
     )
-    _FEATHERLESS_ROUTE["route"] = f"notebook_ollama_{model_name}"
-    return resp.json()["choices"][0]["message"]["content"]
+    _AMD_ROUTE["route"] = f"amd_ollama_on_gpu::{AMD_OLLAMA_MODEL}"
+    # Native /api/chat response shape differs from OpenAI's
+    # choices[0].message.content - it's message.content directly.
+    return resp.json()["message"]["content"]
 
 
-def call_amd_notebook_qwen(system_prompt: str, user_prompt: str) -> str:
-    return call_amd_notebook_ollama(system_prompt, user_prompt, NOTEBOOK_OLLAMA_MODELS["amd_notebook_qwen"])
-
-
-def call_amd_notebook_gemma(system_prompt: str, user_prompt: str) -> str:
-    return call_amd_notebook_ollama(system_prompt, user_prompt, NOTEBOOK_OLLAMA_MODELS["amd_notebook_gemma"])
-
-
-# Fireworks is the main provider. Featherless is a testing-only fallback.
-# AMD notebook providers are not auto-failover; they run only when forced.
+# Auto-failover chain, tried in order: genuine on-GPU AMD compute via Ollama
+# running Gemma 4 26B (main) -> Fireworks GLM 5.2 (fallback, DIRECT). The AMD
+# provider requires AMD_OLLAMA_URL to point at a live Ollama instance serving
+# gemma4:26b (test notebook right now, our own droplet later - same GPU specs).
 _PROVIDERS = [
-    ("fireworks", call_fireworks),
-    ("featherless", call_featherless),  # FEATHERLESS (TESTING ONLY)
+    ("amd_notebook_gemma4", call_amd_notebook_gemma4),
+    ("fireworks_serverless_fast", call_fireworks_serverless_fast),
 ]
 
-# Every selectable provider's actual call function, including amd_notebook -
-# used by call_llm() when a manual override is active, and by get_llm_status()
-# when testing a single forced provider instead of the auto chain.
-_ALL_PROVIDER_FNS = dict(_PROVIDERS + [
-    ("amd_notebook_qwen", call_amd_notebook_qwen),
-    ("amd_notebook_gemma", call_amd_notebook_gemma),
-])
+# Every selectable provider's actual call function - used by call_llm() when
+# a manual override is active, and by get_llm_status() when testing a single
+# forced provider instead of the auto chain.
+_ALL_PROVIDER_FNS = dict(_PROVIDERS)
 
 
 def set_forced_provider(provider: str | None) -> None:
@@ -291,19 +364,41 @@ def get_llm_status() -> str | None:
     if now - _STATUS_CACHE["checked_at"] < ttl:
         return _STATUS_CACHE["provider"]
 
-    candidates = [(forced, _ALL_PROVIDER_FNS[forced])] if forced else _PROVIDERS
-    for name, fn in candidates:
-        try:
-            fn("You are a test.", "Reply with the single word: ok")
-            _STATUS_CACHE["provider"] = name
-            break
-        except Exception:
-            continue
-    else:
-        _STATUS_CACHE["provider"] = None
+    # Cold/expired cache: only ONE thread should actually run the
+    # connectivity-check chain. Without this lock, every specialist thread
+    # that observes the same stale cache (a near-guarantee right after
+    # server start, since all 4 start within the same ~1.2s stagger window)
+    # independently re-runs the full provider-chain check concurrently,
+    # multiplying real network calls right before each specialist's actual
+    # scoring call. Blocking on the lock (instead of skipping) is
+    # intentional: a thread that loses the race should wait for and reuse
+    # the winner's fresh result, not silently skip past a status check it
+    # still needs.
+    with _STATUS_LOCK:
+        # Re-check inside the lock: another thread may have just refreshed
+        # the cache while this thread was waiting to acquire it.
+        now = time.monotonic()
+        ttl = _SUCCESS_TTL_SECONDS if _STATUS_CACHE["provider"] else _FAILURE_TTL_SECONDS
+        if now - _STATUS_CACHE["checked_at"] < ttl:
+            return _STATUS_CACHE["provider"]
 
-    _STATUS_CACHE["checked_at"] = now
-    return _STATUS_CACHE["provider"]
+        candidates = [(forced, _ALL_PROVIDER_FNS[forced])] if forced else _PROVIDERS
+        for name, fn in candidates:
+            try:
+                fn("You are a test.", "Reply with the single word: ok")
+                _STATUS_CACHE["provider"] = name
+                break
+            except Exception as e:
+                # TEMP DEBUG: was a silent `except Exception: continue` -
+                # print the real reason each provider failed so we can
+                # actually diagnose connectivity instead of guessing.
+                print(f"[PROVIDER CHECK FAILED] {name}: {type(e).__name__}: {e}")
+                continue
+        else:
+            _STATUS_CACHE["provider"] = None
+
+        _STATUS_CACHE["checked_at"] = now
+        return _STATUS_CACHE["provider"]
 
 
 def has_llm() -> bool:
@@ -316,14 +411,8 @@ def get_provider_detail() -> str | None:
     provider = get_llm_status()
     if provider is None:
         return None
-    if provider == "featherless":
-        route = _FEATHERLESS_ROUTE.get("route")
-        if route == "notebook_fallback":
-            return "featherless (AMD notebook fallback)"
-        return "featherless (direct)"
-    if provider in NOTEBOOK_OLLAMA_MODELS:
-        model_name = NOTEBOOK_OLLAMA_MODELS[provider]
-        return f"{model_name} (AMD notebook, local Ollama on-GPU)"
+    if provider == "amd_notebook_gemma4":
+        return f"{AMD_OLLAMA_MODEL} (genuine on-GPU inference, AMD MI300X via Ollama)"
     return provider
 
 
@@ -334,7 +423,7 @@ def call_llm(system_prompt: str, user_prompt: str) -> str:
     """
     provider = get_llm_status()
     if provider is None:
-        raise RuntimeError("LLM_OFFLINE: no configured backend (Fireworks/Featherless/AMD notebook) is reachable.")
+        raise RuntimeError("LLM_OFFLINE: no configured backend (Fireworks/AMD notebook) is reachable.")
 
     time.sleep(random.uniform(0, 1.2))
 
@@ -344,6 +433,14 @@ def call_llm(system_prompt: str, user_prompt: str) -> str:
 
 
 def extract_code_block(text: str) -> str:
+    # Defensive strip for reasoning models: Fireworks' docs note that some
+    # reasoning models put their thinking trace directly in `content` inside
+    # <think>...</think> tags rather than the separate `reasoning_content`
+    # field. If that happens despite REASONING_EFFORT above, drop it before
+    # looking for the code fence rather than trying to exec the reasoning
+    # text itself.
+    if "<think>" in text and "</think>" in text:
+        text = text.split("</think>", 1)[1]
     if "```python" in text:
         return text.split("```python", 1)[1].split("```", 1)[0].strip()
     if "```" in text:
