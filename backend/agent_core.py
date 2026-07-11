@@ -5,10 +5,8 @@ Handles calling an LLM agent and executing Python analysis code the agent writes
 
 Two providers only:
   1. amd_notebook_gemma4       - Gemma 4 26B, GENUINE on-GPU inference via Ollama
-                                  on an AMD MI300X (ROCm). Main provider. Currently
-                                  pointed at the AMD-provided test notebook; swaps to
-                                  our own AMD droplet for the final build (same GPU
-                                  specs, just a different AMD_OLLAMA_URL).
+                                  on an AMD MI300X (ROCm). Main provider. Points at
+                                  our own AMD Cloud GPU droplet.
   2. fireworks_serverless_fast - Fireworks GLM 5.2 (DIRECT, pay-per-token, serverless).
                                   Fallback provider.
 Provider connectivity is verified with cached checks.
@@ -45,12 +43,11 @@ FIREWORKS_FAST_SERVERLESS_MODEL = os.environ.get(
 # --- Main provider: genuine on-GPU AMD compute (ROCm + Ollama, Gemma 4 26B MoE) ---
 # Actually loads and runs Gemma 4 26B locally on an AMD MI300X (ROCm) via
 # Ollama's OpenAI-compatible /v1/chat/completions endpoint - real on-GPU
-# inference, no Fireworks call involved at all. Right now AMD_OLLAMA_URL
-# points at the AMD-provided test notebook; for the final build this swaps
-# to our own AMD droplet - same GPU specs (MI300X), just a different URL.
-# Point AMD_OLLAMA_URL at a tunnel/firewalled address only - Ollama has no
-# built-in auth, so port 11434 must never be exposed directly to the public
-# internet (see HANDOFF.md).
+# inference, no Fireworks call involved at all. AMD_OLLAMA_URL points at
+# our own AMD Cloud GPU droplet (MI300X). Point AMD_OLLAMA_URL at a
+# tunnel/firewalled address only - Ollama has no built-in auth, so port
+# 11434 must never be exposed directly to the public internet (see
+# HANDOFF.md).
 AMD_OLLAMA_URL = os.environ.get("AMD_OLLAMA_URL", "")
 AMD_OLLAMA_MODEL = os.environ.get("AMD_OLLAMA_MODEL", "gemma4:26b")
 
@@ -272,8 +269,8 @@ def call_amd_notebook_gemma4(system_prompt: str, user_prompt: str) -> str:
     """
     if not AMD_OLLAMA_URL:
         raise RuntimeError(
-            "AMD_OLLAMA_URL not set - launch the AMD-provided GPU notebook from "
-            "the team portal, `ollama pull gemma4:26b` there, and set "
+            "AMD_OLLAMA_URL not set - launch the AMD Cloud GPU droplet, "
+            "`ollama pull gemma4:26b` there, and set "
             "AMD_OLLAMA_URL in backend/.env to its "
             "http://<tunnel-or-ip>:11434/v1/chat/completions URL. See "
             "HANDOFF.md for the full setup steps."
@@ -323,7 +320,7 @@ def call_amd_notebook_gemma4(system_prompt: str, user_prompt: str) -> str:
 # Auto-failover chain, tried in order: genuine on-GPU AMD compute via Ollama
 # running Gemma 4 26B (main) -> Fireworks GLM 5.2 (fallback, DIRECT). The AMD
 # provider requires AMD_OLLAMA_URL to point at a live Ollama instance serving
-# gemma4:26b (test notebook right now, our own droplet later - same GPU specs).
+# gemma4:26b on our own AMD Cloud GPU droplet.
 _PROVIDERS = [
     ("amd_notebook_gemma4", call_amd_notebook_gemma4),
     ("fireworks_serverless_fast", call_fireworks_serverless_fast),

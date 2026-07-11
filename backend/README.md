@@ -19,7 +19,7 @@ Each specialist produces a risk score, a flag, and reasoning. A synthesis layer 
 - [run_pipeline.py](run_pipeline.py) — end-to-end pipeline runner for executing the workflow on one or more patients
 - [specialists.py](specialists.py) — specialist system prompts, strict code-format rules, and orchestration for each risk domain
 - [synthesis_agent.py](synthesis_agent.py) — synthesis layer that turns specialist results into a simple referral-style recommendation
-- [agent_core.py](agent_core.py) — the two-provider LLM chain (AMD Gemma 4 26B via Ollama, Fireworks GLM 5.2) plus sandboxed code execution
+- [agent_core.py](agent_core.py) — the two-provider LLM chain (AMD Gemma 4 26B via Ollama on the AMD GPU droplet, Fireworks GLM 5.2) plus sandboxed code execution
 - [build_real_dataset.py](build_real_dataset.py) — prepares the patient dataset from source files
 - [real_patients.csv](real_patients.csv) — the patient dataset used by the pipeline
 
@@ -88,10 +88,10 @@ The API will be available at:
 
 There is no rule-based/deterministic fallback. The backend tries exactly two LLM providers, in order:
 
-1. **Gemma 4 26B via Ollama**, running genuinely on-GPU - main provider. Currently points at the AMD-provided test notebook (MI300X/ROCm); swaps to our own AMD droplet for the final build (same GPU specs).
+1. **Gemma 4 26B via Ollama**, running genuinely on-GPU - main provider. Points at our own AMD Cloud GPU droplet (MI300X/ROCm).
 2. **Fireworks GLM 5.2** (serverless, direct API call) - fallback provider, used only if AMD isn't reachable.
 
-If neither provider is reachable, or the LLM-generated code fails after retries, the affected specialist/synthesis/report step honestly reports itself as "unavailable" instead of silently substituting canned or rule-based output. See `agent_core.py` for the provider chain and `HANDOFF.md` for the notebook/droplet setup steps.
+If neither provider is reachable, or the LLM-generated code fails after retries, the affected specialist/synthesis/report step honestly reports itself as "unavailable" instead of silently substituting canned or rule-based output. See `agent_core.py` for the provider chain and `HANDOFF.md` for the droplet setup steps.
 
 ## Current status
 

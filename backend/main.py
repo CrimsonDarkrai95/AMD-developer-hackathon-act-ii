@@ -548,10 +548,10 @@ def analyze_patient_stream(patient_id: str):
 
 @app.get("/api/status", tags=["info"])
 def get_status():
-    """Returns the current LLM status of the backend (fireworks, an AMD notebook
-    route, or offline), plus the actual model string in use so the Benchmark
-    tab can show e.g. 'Qwen/Qwen2.5-7B-Instruct via fireworks' instead of just
-    a provider name.
+    """Returns the current LLM status of the backend (fireworks, the AMD GPU
+    droplet route, or offline), plus the actual model string in use so the
+    Benchmark tab can show e.g. 'Qwen/Qwen2.5-7B-Instruct via fireworks'
+    instead of just a provider name.
     """
     from agent_core import (
         FIREWORKS_FAST_SERVERLESS_MODEL,
@@ -573,12 +573,11 @@ def get_status():
 # Written to give someone a real reason to pick one deliberately, not just
 # restate the label - AMD for verified on-hardware inference, Fireworks for
 # raw model quality/speed. "amd_notebook_gemma4" is the main provider:
-# Gemma 4 26B running genuinely on-GPU via Ollama on an AMD MI300X (ROCm) -
-# currently the AMD-provided test notebook, swapping to our own AMD droplet
-# for the final build (same GPU specs). Requires AMD_OLLAMA_URL to point at
-# a live Ollama instance (tunnel/firewalled, since Ollama has no built-in
-# auth). "Ollama" itself is left out of the label - it's the serving layer,
-# not something someone choosing a provider needs to know.
+# Gemma 4 26B running genuinely on-GPU via Ollama on our own AMD Cloud GPU
+# droplet (MI300X, ROCm). Requires AMD_OLLAMA_URL to point at a live Ollama
+# instance (tunnel/firewalled, since Ollama has no built-in auth). "Ollama"
+# itself is left out of the label - it's the serving layer, not something
+# someone choosing a provider needs to know.
 _PROVIDER_LABELS = {
     "amd_notebook_gemma4": {
         "label": "AMD MI300X: Gemma 4 26B",
