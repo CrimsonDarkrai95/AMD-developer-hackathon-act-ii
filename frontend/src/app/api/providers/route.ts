@@ -1,7 +1,7 @@
 // frontend/src/app/api/providers/route.ts
 // Proxies GET /api/providers to the FastAPI backend. Lists every selectable
-// LLM provider (featherless / fireworks / amd_notebook) plus which one, if
-// any, is currently manually forced.
+// LLM provider (fireworks_serverless_fast / amd_notebook_gemma4) plus
+// which one, if any, is currently manually forced.
 
 import { NextResponse } from "next/server";
 

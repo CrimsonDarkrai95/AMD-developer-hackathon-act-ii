@@ -297,7 +297,7 @@ export function WelcomeModal({ isOpen, onClose }: WelcomeModalProps) {
                 <div className="flex items-center justify-between">
                   <p className="text-[11px] font-semibold uppercase tracking-wider text-slate-400">Powered by</p>
                   <span className="rounded-full bg-gradient-to-r from-orange-500 to-rose-500 px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-white shadow-sm">
-                    AMD Cloud &amp; Fireworks.ai
+                    AMD Cloud GPU + Fireworks.ai
                   </span>
                 </div>
                 <p className="text-sm sm:text-base leading-relaxed text-slate-600">
@@ -320,9 +320,9 @@ export function WelcomeModal({ isOpen, onClose }: WelcomeModalProps) {
                       <Icon path={ICON_PATHS.database} className="h-5 w-5 text-slate-500" />
                     </div>
                     <div>
-                      <p className="text-sm font-semibold text-slate-800">Batch: patient embeddings + reasoning QA</p>
+                      <p className="text-sm font-semibold text-slate-800">Batch: patient embeddings on AMD GPU</p>
                       <p className="mt-0.5 text-xs leading-snug text-slate-500">
-                        Embeds every patient for similarity search and grades the swarm&apos;s reasoning against a clinical rubric, using real GPU compute confirmed via rocm-smi.
+                        Every patient is embedded on real AMD GPU compute, verified via rocm-smi, then a Fireworks model grades the swarm&apos;s reasoning quality.
                       </p>
                     </div>
                   </div>
@@ -332,9 +332,9 @@ export function WelcomeModal({ isOpen, onClose }: WelcomeModalProps) {
                       <Icon path={ICON_PATHS.sandbox} className="h-5 w-5 text-slate-500" />
                     </div>
                     <div>
-                      <p className="text-sm font-semibold text-slate-800">Live: AMD + Fireworks, switchable</p>
+                      <p className="text-sm font-semibold text-slate-800">Live: Gemma 4 on AMD, switchable</p>
                       <p className="mt-0.5 text-xs leading-snug text-slate-500">
-                        GlycoSwarm is also powered by Fireworks.ai for live inference. Switch between the AMD relay and Fireworks anytime from the provider selector in the header.
+                        Live inference runs on genuine on-GPU Gemma 4 via AMD&apos;s MI300X. Switch to Fireworks anytime from the provider selector in the header.
                       </p>
                     </div>
                   </div>

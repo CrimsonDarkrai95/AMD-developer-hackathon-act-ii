@@ -46,14 +46,17 @@ export interface SynthesisReport {
   duration_ms: number;
   used_llm: boolean;
   synthesis_error: string | null;   // non-null if synthesis is unavailable, explaining why
+  system_prompt: string | null;     // the exact system prompt sent to the LLM for this stage
+  user_prompt: string | null;       // the exact user prompt (patient + specialist findings) sent; null only if no LLM was reachable at all
+  raw_response: string | null;      // the LLM's raw response text; null if unavailable or the call itself failed before returning
 }
 
 export interface BenchmarkSummary {
   total_duration_ms: number;
   agents_run: number;              // always 5 (4 specialists + synthesis)
   llm_calls_made: number;          // includes retries
-  provider: "fireworks" | "featherless" | "amd_notebook_qwen" | "amd_notebook_gemma" | null;
-  provider_detail?: string | null; // human-readable route, e.g. "featherless (direct)" or "qwen2.5-coder:7b (AMD notebook, local Ollama on-GPU)"
+  provider: "fireworks_serverless_fast" | "amd_notebook_gemma4" | null;
+  provider_detail?: string | null; // human-readable route, e.g. "accounts/fireworks/models/glm-5p2" or "gemma4:26b (genuine on-GPU inference, AMD MI300X via Ollama)"
 }
 
 export interface PatientAnalysisResponse {
@@ -74,7 +77,7 @@ export interface StreamEvent {
   total_duration_ms?: number;
   agents_run?: number;
   llm_calls_made?: number;
-  provider?: "fireworks" | "featherless" | "amd_notebook_qwen" | "amd_notebook_gemma" | null;
+  provider?: "fireworks_serverless_fast" | "amd_notebook_gemma4" | null;
   provider_detail?: string | null;
 }
 
@@ -95,11 +98,12 @@ export interface CustomPatientInput {
 
 // Manual LLM provider switcher
 export interface ProviderOption {
-  id: "featherless" | "fireworks" | "amd_notebook_qwen" | "amd_notebook_gemma";
+  id: "fireworks_serverless_fast" | "amd_notebook_gemma4";
   label: string;
   description: string;
   configured: boolean; // env vars present — NOT the same as "currently reachable"
-  amd_compute: boolean; // true for providers that run a model locally via Ollama on the AMD GPU
+  amd_compute: boolean; // true for the AMD Developer Cloud provider (genuine on-GPU inference via Ollama, not a relay)
+  model_family: "gemma" | "glm" | null; // drives the model-family tag next to the AMD tag in the switcher
 }
 
 export interface ProviderListResponse {

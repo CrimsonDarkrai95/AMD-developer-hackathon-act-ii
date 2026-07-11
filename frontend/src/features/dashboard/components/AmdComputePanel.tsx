@@ -156,12 +156,12 @@ export function AmdComputePanel({ patientId }: AmdComputePanelProps) {
                 )}
                 {current && current.n_samples != null && (
                   <div className="rounded-2xl bg-slate-50 p-2.5 text-xs dark:bg-slate-800/50">
-                    <span className="font-semibold text-slate-600 dark:text-slate-300">Reasoning QA (local judge, on-GPU): </span>
+                    <span className="font-semibold text-slate-600 dark:text-slate-300">Reasoning QA (Fireworks judge, called from AMD instance): </span>
                     <span className="font-mono text-slate-700 dark:text-slate-200">
                       {current.n_passed}/{current.n_samples} passed
                     </span>
                     {current.judge_model && (
-                      <span className="text-slate-400"> — judge: {current.judge_model}</span>
+                      <span className="text-slate-400">, judge: {current.judge_model}</span>
                     )}
                   </div>
                 )}

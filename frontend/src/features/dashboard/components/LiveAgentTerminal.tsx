@@ -69,7 +69,7 @@ export function LiveAgentTerminal({
     <HoverScale className="flex h-auto flex-col gap-3 rounded-[32px] border border-slate-200 bg-white p-3 sm:p-4 transition-colors duration-200 hover:border-slate-300 hover:shadow-md">
       <div className="flex flex-col gap-0.5">
         <div className="flex flex-nowrap items-center justify-between gap-2">
-          <h2 className="shrink-0 whitespace-nowrap text-sm font-semibold tracking-tight text-slate-800">
+          <h2 className="ml-1 mt-1 shrink-0 whitespace-nowrap text-lg font-semibold tracking-tight text-slate-800">
             Agent Terminal
           </h2>
           {llmStatus === "offline" ? (
@@ -88,44 +88,37 @@ export function LiveAgentTerminal({
             </div>
           ) : (
             (() => {
-              // llmStatus can be a short provider id ("fireworks") or a longer
-              // "model (extra detail)" string for the AMD notebook routes, e.g.
-              // "qwen2.5-coder:7b (AMD notebook, local Ollama on-GPU)". Either
-              // way, the TOP line is always the provider/source ("Fireworks",
-              // "Featherless", "AMD Notebook") and the line below is always
-              // "LLM: <actual model>" - so "Fireworks" never gets mislabeled as
-              // if it were the model itself.
-              const match = llmStatus.match(/^([^(]+?)\s*(?:\((.+)\))?$/);
-              const shortLabel = (match?.[1] ?? llmStatus).trim();
-              const detail = match?.[2]?.trim();
-              const isAmd = /(amd|notebook)/i.test(llmStatus);
-              const providerTitle = isAmd ? "AMD Notebook" : shortLabel.charAt(0).toUpperCase() + shortLabel.slice(1);
-              const modelDisplay = (llmModel ? llmModel.split("/").pop() : null) || shortLabel;
-              const tooltip = detail || undefined;
+              // llmStatus is a provider id like "fireworks_serverless_fast" or
+              // "amd_notebook_gemma" - reduce it to just its source family for
+              // display. The actual model string (llmModel) is shown separately
+              // on the line below, so this badge never needs to spell out the
+              // specific tier/model itself.
+              const isAmd = llmStatus.startsWith("amd_notebook");
+              const providerTitle = isAmd ? "AMD Cloud" : "Fireworks";
+              const modelDisplay = (llmModel ? llmModel.split("/").pop() : null) || providerTitle;
 
               return (
-                <div
-                  className="flex min-w-0 flex-1 items-center justify-end gap-1.5"
-                  title={tooltip}
-                >
+                <div className="flex min-w-0 flex-1 items-center justify-end gap-1.5">
                   <span className="h-2 w-2 shrink-0 animate-pulse rounded-full bg-emerald-500" />
                   <span className="min-w-0 truncate text-xs uppercase tracking-wide text-emerald-600 font-semibold">
                     {providerTitle}
                   </span>
-                  {isAmd && (
-                    <span className="inline-flex shrink-0 items-center gap-1 whitespace-nowrap rounded-full bg-gradient-to-r from-rose-500 to-orange-500 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide text-white shadow-sm">
-                      AMD
-                    </span>
-                  )}
+                  <span
+                    className={`inline-flex shrink-0 items-center gap-1 whitespace-nowrap rounded-full border px-1.5 py-[3px] text-[9px] font-bold uppercase leading-none tracking-wide ${
+                      isAmd
+                        ? "border-blue-400/50 bg-blue-500/10 text-blue-600 dark:text-blue-400"
+                        : "border-zinc-400/50 bg-zinc-500/10 text-zinc-600 dark:text-zinc-300"
+                    }`}
+                  >
+                    {isAmd ? "Gemma" : "GLM"}
+                  </span>
                 </div>
               );
             })()
           )}
         </div>
         {llmStatus !== "offline" && llmStatus !== "checking..." && (() => {
-          const match = llmStatus.match(/^([^(]+?)\s*(?:\((.+)\))?$/);
-          const shortLabel = (match?.[1] ?? llmStatus).trim();
-          const modelDisplay = (llmModel ? llmModel.split("/").pop() : null) || shortLabel;
+          const modelDisplay = (llmModel ? llmModel.split("/").pop() : null) || (llmStatus.startsWith("amd_notebook") ? "AMD Cloud" : "Fireworks");
           return (
             <span className="truncate text-right text-[10px] font-mono text-slate-400" title={llmModel || undefined}>
               LLM: {modelDisplay}

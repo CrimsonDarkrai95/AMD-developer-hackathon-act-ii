@@ -39,6 +39,14 @@ const specialistFriendlyNames: Record<string, string> = {
   cardiovascular: "Cardiovascular",
 };
 
+// Reduces a raw provider id ("fireworks_serverless_fast", "amd_notebook_gemma")
+// down to just its source family for terminal/log display - matches the same
+// simplification used in the Agent Terminal header badge.
+function formatProviderLabel(provider: string | null | undefined): string {
+  if (!provider) return "none";
+  return provider.startsWith("amd_notebook") ? "AMD Cloud" : "Fireworks";
+}
+
 export default function DashboardPage() {
   const [patients, setPatients] = useState<PatientDropdownItem[]>([]);
   const [selectedPatientId, setSelectedPatientId] = useState<string>("");
@@ -106,7 +114,15 @@ export default function DashboardPage() {
         const res = await fetch("/api/status", { cache: "no-store" });
         if (res.ok) {
           const data = await res.json();
-          setLlmStatus(data.provider_detail || data.llm_status);
+          // llmStatus must stay the RAW provider id ("amd_notebook_gemma4" /
+          // "fireworks_serverless_fast" / "offline") - LiveAgentTerminal's
+          // badge does `llmStatus.startsWith("amd_notebook")` to decide which
+          // provider to display. Using provider_detail here (a human-readable
+          // string like "gemma4:26b (genuine on-GPU...)") silently broke that
+          // check whenever AMD was actually active, since that string never
+          // starts with "amd_notebook" - it fell through and showed
+          // Fireworks/GLM even while genuinely running on AMD.
+          setLlmStatus(data.llm_status);
           setLlmModel(data.model);
         } else {
           setLlmStatus("offline");
@@ -228,7 +244,7 @@ export default function DashboardPage() {
 
       if (event.stage === "pipeline_start") {
         const providerLabel = event.provider
-          ? `LLM sandbox (${event.provider_detail || event.provider})`
+          ? `LLM sandbox (${formatProviderLabel(event.provider)})`
           : "LLM offline - no fallback, analysis will be reported unavailable";
         setTerminalLogs((prev) => [
           ...prev,
@@ -258,10 +274,21 @@ export default function DashboardPage() {
           provider_detail: event.provider_detail,
         });
 
+        // Keep the header/terminal status badges in sync with what this run
+        // actually used - without this, llmStatus/llmModel only ever reflect
+        // the single /api/status fetch from page load (or a manual provider
+        // switch), so a backend fix or provider change made mid-session never
+        // shows up in the UI until a hard refresh. Must be the RAW provider id
+        // (event.provider), not event.provider_detail - see the matching note
+        // in loadStatus() above for why the detail string breaks the AMD badge.
+        if (event.provider) {
+          setLlmStatus(event.provider);
+        }
+
         setTerminalLogs((prev) => [
           ...prev,
           `> [SYSTEM] Swarm pipeline execution finished in ${event.total_duration_ms} ms.`,
-          `> [SYSTEM] Provider mode: ${event.provider_detail || event.provider || "LLM offline (no fallback)"}.`,
+          `> [SYSTEM] Provider mode: ${event.provider ? formatProviderLabel(event.provider) : "LLM offline (no fallback)"}.`,
         ]);
 
         es.close();
