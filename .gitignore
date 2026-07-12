@@ -16,6 +16,7 @@ __pycache__/
 .venv/
 venv/
 backend/.env
+backend/.env.droplet
 
 # ─── Jupyter / Notebooks ──────────────────────────────────────────────────
 .ipynb_checkpoints/
