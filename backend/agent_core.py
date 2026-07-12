@@ -46,8 +46,7 @@ FIREWORKS_FAST_SERVERLESS_MODEL = os.environ.get(
 # inference, no Fireworks call involved at all. AMD_OLLAMA_URL points at
 # our own AMD Cloud GPU droplet (MI300X). Point AMD_OLLAMA_URL at a
 # tunnel/firewalled address only - Ollama has no built-in auth, so port
-# 11434 must never be exposed directly to the public internet (see
-# HANDOFF.md).
+# 11434 must never be exposed directly to the public internet.
 AMD_OLLAMA_URL = os.environ.get("AMD_OLLAMA_URL", "")
 AMD_OLLAMA_MODEL = os.environ.get("AMD_OLLAMA_MODEL", "gemma4:26b")
 
@@ -263,17 +262,16 @@ def call_amd_notebook_gemma4(system_prompt: str, user_prompt: str) -> str:
     turn off Gemma's always-on reasoning preamble through that path. The
     native endpoint honors `"think": false` correctly for this model, which
     is what actually kills the preamble that was eating the AMD_MAX_TOKENS
-    budget and truncating generated code. `AMD_OLLAMA_URL` is still configured
-    as the /v1/chat/completions URL (per HANDOFF.md / .env) - the native path
-    is derived from it below so no .env change is needed.
+    budget and truncating generated code. `AMD_OLLAMA_URL` is configured as
+    the /v1/chat/completions URL in .env - the native path is derived from
+    it below so no .env change is needed.
     """
     if not AMD_OLLAMA_URL:
         raise RuntimeError(
             "AMD_OLLAMA_URL not set - launch the AMD Cloud GPU droplet, "
             "`ollama pull gemma4:26b` there, and set "
             "AMD_OLLAMA_URL in backend/.env to its "
-            "http://<tunnel-or-ip>:11434/v1/chat/completions URL. See "
-            "HANDOFF.md for the full setup steps."
+            "http://<tunnel-or-ip>:11434/v1/chat/completions URL."
         )
     native_url = AMD_OLLAMA_URL
     if native_url.endswith("/v1/chat/completions"):
@@ -420,7 +418,7 @@ def call_llm(system_prompt: str, user_prompt: str) -> str:
     """
     provider = get_llm_status()
     if provider is None:
-        raise RuntimeError("LLM_OFFLINE: no configured backend (Fireworks/AMD notebook) is reachable.")
+        raise RuntimeError("LLM_OFFLINE: no configured backend (Fireworks/AMD droplet) is reachable.")
 
     time.sleep(random.uniform(0, 1.2))
 

@@ -91,7 +91,7 @@ There is no rule-based/deterministic fallback. The backend tries exactly two LLM
 1. **Gemma 4 26B via Ollama**, running genuinely on-GPU - main provider. Points at our own AMD Cloud GPU droplet (MI300X/ROCm).
 2. **Fireworks GLM 5.2** (serverless, direct API call) - fallback provider, used only if AMD isn't reachable.
 
-If neither provider is reachable, or the LLM-generated code fails after retries, the affected specialist/synthesis/report step honestly reports itself as "unavailable" instead of silently substituting canned or rule-based output. See `agent_core.py` for the provider chain and `HANDOFF.md` for the droplet setup steps.
+If neither provider is reachable, or the LLM-generated code fails after retries, the affected specialist/synthesis/report step honestly reports itself as "unavailable" instead of silently substituting canned or rule-based output. See `agent_core.py` for the provider chain.
 
 ## Current status
 
