@@ -384,9 +384,9 @@ def get_llm_status() -> str | None:
                 _STATUS_CACHE["provider"] = name
                 break
             except Exception as e:
-                # TEMP DEBUG: was a silent `except Exception: continue` -
-                # print the real reason each provider failed so we can
-                # actually diagnose connectivity instead of guessing.
+                # Log the real reason each provider failed (rather than a
+                # silent `except Exception: continue`) so connectivity
+                # issues can actually be diagnosed instead of guessed at.
                 print(f"[PROVIDER CHECK FAILED] {name}: {type(e).__name__}: {e}")
                 continue
         else:

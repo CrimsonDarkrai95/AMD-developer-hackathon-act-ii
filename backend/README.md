@@ -1,6 +1,6 @@
 # Backend Overview
 
-This backend is the reasoning engine behind the Diabetic Complication Swarm prototype. It loads patient data, runs specialist-style analysis across multiple diabetes-related complication domains, and produces a synthesis recommendation that can be shown in the frontend dashboard.
+This backend is the reasoning engine behind the Diabetic Complication Swarm (GlycoSwarm AI). It loads patient data, runs specialist-style analysis across multiple diabetes-related complication domains, and produces a synthesis recommendation that can be shown in the frontend dashboard.
 
 ## What the backend does
 
@@ -27,7 +27,7 @@ Each specialist produces a risk score, a flag, and reasoning. A synthesis layer 
 
 The backend is built around a real patient dataset workflow using CDC NHANES 2017–2018 survey data. The project uses public, de-identified survey data rather than synthetic patient records.
 
-That said, this is still a prototype and not a clinical-grade decision support product. NHANES is a single-visit survey dataset, so it does not contain longitudinal glucose trends or full diabetes-duration history. The specialists therefore use simplified but transparent proxy logic where needed, and the backend explicitly communicates that limitation in its reasoning output.
+That said, this is a demo/prototype system and not a clinical-grade decision support product (see the root README's "What's real vs. what is demo/prototype" section). NHANES is a single-visit survey dataset, so it does not contain longitudinal glucose trends or full diabetes-duration history. The specialists therefore use simplified but transparent proxy logic where needed, and the backend explicitly communicates that limitation in its reasoning output.
 
 ## How the pipeline works
 
@@ -95,12 +95,12 @@ If neither provider is reachable, or the LLM-generated code fails after retries,
 
 ## Current status
 
-The backend is now in a working prototype stage:
+The backend pipeline is complete and demo-ready:
 
 - pipeline execution: working
 - specialist analysis: implemented
 - synthesis layer: implemented
 - API surface: available
-- local startup path: improved for reliability
+- local startup path: documented and verified
 
-The remaining work is mainly around hardening, clearer configuration, and polishing the overall product experience.
+See the root [README.md](../README.md#current-project-status) for the full project-level status table.
