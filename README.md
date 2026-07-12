@@ -9,6 +9,14 @@ Built for **AMD Developer Hackathon: ACT II — Track 3 (Unicorn Track)**
 
 [Live Demo](https://glycoswarm-ai.vercel.app/) · [Slide Deck](#) · [Demo Video](#)
 
+[![Deployed on Vercel](https://img.shields.io/badge/Vercel-deployed-000000?logo=vercel&logoColor=white)](https://glycoswarm-ai.vercel.app/)
+[![Backend](https://img.shields.io/badge/Backend-FastAPI-009688?logo=fastapi&logoColor=white)](backend)
+[![Frontend](https://img.shields.io/badge/Frontend-Next.js-000000?logo=nextdotjs&logoColor=white)](frontend)
+[![Orchestration](https://img.shields.io/badge/Orchestration-LangGraph-1C3C3C)](backend/run_pipeline.py)
+[![Compute](https://img.shields.io/badge/Compute-AMD%20MI300X-ED1C24?logo=amd&logoColor=white)](#amd-developer-cloud-compute-track-3)
+[![Model](https://img.shields.io/badge/Model-Gemma%204%2026B-4285F4?logo=google&logoColor=white)](#llm-providers)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+
 </div>
 
 ---
@@ -104,13 +112,6 @@ This project is a working prototype, not a production medical tool.
 - The UI is a polished prototype experience, not a full clinical product
 - Specialist reasoning is generated through a sandboxed agent workflow, LLM-only (AMD MI300X on-GPU Gemma 4 26B via Ollama, falling back to Fireworks GLM 5.2) — there is no rule-based fallback; if neither provider is reachable, the affected step honestly reports itself unavailable
 - Intended for demo, exploration, and iteration — not direct clinical deployment
-
-**Still pending:**
-- Full end-to-end production hardening
-- Authentication and role-based access
-- Better data provenance and patient safety controls
-- More polished reporting and export workflows
-- Complete deployment and environment management
 
 ## Repository structure
 
@@ -223,7 +224,7 @@ There is no rule-based fallback — without at least one of these configured, sp
 
 ## Current project status
 
-The project is at a **demo-ready prototype** stage:
+The project is complete and demo-ready for submission:
 
 | Component | Status |
 |---|---|
@@ -234,9 +235,7 @@ The project is at a **demo-ready prototype** stage:
 | Provider switcher + benchmark tab | ✅ Live, reads real backend state |
 | Discovery Brief generation | ✅ LLM-only, honest-unavailable on failure |
 | Local startup path | ✅ Documented and verified |
-| Production hardening | ⏳ Pending |
-
-Remaining work is primarily refinement, polish, and product hardening — see [Still pending](#whats-real-vs-what-is-demoprototype) above.
+| Live deployment (Railway + Vercel) | ✅ Live |
 
 ## Team
 
