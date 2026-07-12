@@ -553,7 +553,7 @@ export default function DashboardPage() {
           <div className="flex lg:hidden items-center gap-2 pt-1.5 pb-0.5">
             {/* Patient selector + Analyze pill */}
             <div className="flex flex-1 items-center gap-1.5 rounded-[32px] border border-slate-200 bg-white dark:bg-slate-800/80 dark:border-slate-700/60 pl-2.5 pr-1 py-1 transition-all duration-200">
-              <label className="hidden sm:block whitespace-nowrap text-[9px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500">Record:</label>
+              <label className="whitespace-nowrap text-[9px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500">Record:</label>
               {isPatientsLoading ? (
                 <span className="animate-pulse text-xs text-slate-400 font-medium flex-1">Mapping...</span>
               ) : (

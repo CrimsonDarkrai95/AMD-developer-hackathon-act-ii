@@ -61,6 +61,38 @@ function SpecialistIcon({ type, className = "h-5 w-5" }: { type: string; classNa
   }
 }
 
+// Renders the provider badge shown on each code-log card (specialist and
+// synthesis). Previously both providers reused the same lightning-bolt icon
+// in a fixed indigo badge regardless of which one actually ran, which made
+// AMD/Gemma and Fireworks/GLM runs visually indistinguishable in the logs.
+// Now picks a distinct icon + color per provider, matching the same
+// orange (AMD) / zinc (GLM) tagging already used in ProviderSwitcher.
+function ProviderBadge({ llmStatus, llmModel }: { llmStatus: string; llmModel: string | null }) {
+  const isAmd = !!llmStatus?.startsWith("amd_notebook");
+  const label = llmModel ? llmModel.split('/').pop()?.toUpperCase() : (llmStatus?.toUpperCase() || "FIREWORKS");
+
+  const colorClasses = isAmd
+    ? "bg-orange-50 border-orange-100/50 text-orange-700"
+    : "bg-zinc-100 border-zinc-200/70 text-zinc-700";
+
+  return (
+    <span className={`rounded-full border px-2.5 py-0.5 text-[10px] font-bold tracking-wide flex items-center gap-1.5 max-w-[250px] ${colorClasses}`}>
+      {isAmd ? (
+        // AMD/Gemma: chip icon, reads as "real hardware"
+        <svg className="h-3 w-3 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.25 3v1.5M4.5 8.25H3m18 0h-1.5M4.5 12H3m18 0h-1.5m-15 3.75H3m18 0h-1.5M8.25 19.5V21M12 3v1.5m0 15V21m3.75-18v1.5m0 15V21m-9-1.5h10.5a2.25 2.25 0 002.25-2.25V6.75a2.25 2.25 0 00-2.25-2.25H6.75A2.25 2.25 0 004.5 6.75v10.5a2.25 2.25 0 002.25 2.25z" />
+        </svg>
+      ) : (
+        // Fireworks/GLM: flame icon, ties back to the "Fireworks" brand name
+        <svg className="h-3 w-3 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.362 5.214A8.252 8.252 0 0112 21 8.25 8.25 0 016.038 7.048 8.287 8.287 0 009 9.6a8.983 8.983 0 013.361-6.867 8.21 8.21 0 003 2.48z" />
+        </svg>
+      )}
+      <span className="truncate">{label}</span>
+    </span>
+  );
+}
+
 const labLabels: Record<string, string> = {
   egfr: "eGFR (Kidney Function)",
   uacr_mg_g: "UACR (Albumin/Creatinine Ratio)",
@@ -494,14 +526,7 @@ export function SwarmDiagnosticsTabs({
                           </div>
                           <div className="flex items-center gap-3">
                             {spec.available ? (
-                              <span className="rounded-full bg-indigo-50 border border-indigo-100/50 px-2.5 py-0.5 text-[10px] font-bold text-indigo-700 tracking-wide flex items-center gap-1.5 max-w-[250px]">
-                                <svg className="h-3 w-3 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
-                                </svg>
-                                <span className="truncate">
-                                  {llmModel ? llmModel.split('/').pop()?.toUpperCase() : (llmStatus?.toUpperCase() || "FIREWORKS")}
-                                </span>
-                              </span>
+                              <ProviderBadge llmStatus={llmStatus} llmModel={llmModel} />
                             ) : (
                               <span className="rounded-full bg-slate-100 border border-slate-200 px-2.5 py-0.5 text-[10px] font-bold text-slate-500 uppercase tracking-wide">
                                 Unavailable
@@ -615,14 +640,7 @@ export function SwarmDiagnosticsTabs({
                           </div>
                           <div className="flex items-center gap-3">
                             {synthesis.available ? (
-                              <span className="rounded-full bg-indigo-50 border border-indigo-100/50 px-2.5 py-0.5 text-[10px] font-bold text-indigo-700 tracking-wide flex items-center gap-1.5 max-w-[250px]">
-                                <svg className="h-3 w-3 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
-                                </svg>
-                                <span className="truncate">
-                                  {llmModel ? llmModel.split('/').pop()?.toUpperCase() : (llmStatus?.toUpperCase() || "FIREWORKS")}
-                                </span>
-                              </span>
+                              <ProviderBadge llmStatus={llmStatus} llmModel={llmModel} />
                             ) : (
                               <span className="rounded-full bg-slate-100 border border-slate-200 px-2.5 py-0.5 text-[10px] font-bold text-slate-500 uppercase tracking-wide">
                                 Unavailable

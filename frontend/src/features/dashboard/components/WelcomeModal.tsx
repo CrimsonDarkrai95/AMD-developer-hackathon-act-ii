@@ -317,24 +317,12 @@ export function WelcomeModal({ isOpen, onClose }: WelcomeModalProps) {
                 <div className="space-y-2.5">
                   <div className="flex items-center gap-3 rounded-[32px] border border-slate-100 bg-slate-50/50 p-3">
                     <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full bg-white shadow-sm">
-                      <Icon path={ICON_PATHS.database} className="h-5 w-5 text-slate-500" />
-                    </div>
-                    <div>
-                      <p className="text-sm font-semibold text-slate-800">Batch: patient embeddings on AMD GPU</p>
-                      <p className="mt-0.5 text-xs leading-snug text-slate-500">
-                        Every patient is embedded on real AMD GPU compute, verified via rocm-smi, then a Fireworks model grades the swarm&apos;s reasoning quality.
-                      </p>
-                    </div>
-                  </div>
-
-                  <div className="flex items-center gap-3 rounded-[32px] border border-slate-100 bg-slate-50/50 p-3">
-                    <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full bg-white shadow-sm">
                       <Icon path={ICON_PATHS.sandbox} className="h-5 w-5 text-slate-500" />
                     </div>
                     <div>
                       <p className="text-sm font-semibold text-slate-800">Live: Gemma 4 on AMD, switchable</p>
                       <p className="mt-0.5 text-xs leading-snug text-slate-500">
-                        Live inference runs on genuine on-GPU Gemma 4 via AMD&apos;s MI300X. Switch to Fireworks anytime from the provider selector in the header.
+                        Every specialist run performs genuine on-GPU inference on Gemma 4 26B via Ollama, hosted on our own AMD MI300X GPU droplet. Switch to Fireworks anytime from the provider selector in the header.
                       </p>
                     </div>
                   </div>
