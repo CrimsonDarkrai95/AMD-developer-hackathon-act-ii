@@ -1,6 +1,6 @@
 // frontend/src/app/api/providers/select/route.ts
 // Proxies POST /api/providers/select to the FastAPI backend. Body is
-// { provider: "fireworks" | "amd_notebook_qwen" | "amd_notebook_gemma" | null } —
+// { provider: "fireworks_serverless_fast" | "amd_notebook_gemma4" | null } —
 // null (or omitted) returns the backend to its normal auto-failover chain.
 
 import { NextResponse } from "next/server";

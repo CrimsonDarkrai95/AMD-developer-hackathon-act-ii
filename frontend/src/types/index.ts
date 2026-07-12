@@ -110,34 +110,3 @@ export interface ProviderListResponse {
   providers: ProviderOption[];
   forced_provider: string | null; // null means "auto" (normal failover chain)
 }
-
-// AMD Compute panel (amd_compute/specialist_eval_and_embeddings.ipynb
-// output, read live off disk by the backend — never fabricated)
-export interface AmdComputeEvalSummary {
-  judge_model: string | null;
-  source_provider: string | null;
-  n_samples: number | null;
-  n_passed: number | null;
-  judge_elapsed_seconds: number | null;
-}
-
-export interface AmdComputeStatus {
-  has_run: boolean;
-  embeddings_available: boolean;
-  reasoning_eval_available: boolean;
-  n_patients_embedded: number | null;
-  device: string | null;
-  embedding_time: string | null;
-  eval_summaries: AmdComputeEvalSummary[];
-  notebook_path: string;
-}
-
-export interface SimilarPatient {
-  patient_id: string;
-  similarity: number;
-}
-
-export interface AmdComputeSimilarResponse {
-  patient_id: string;
-  similar_patients: SimilarPatient[];
-}
