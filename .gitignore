@@ -3,8 +3,7 @@ node_modules/
 .next/
 out/
 .turbo/
-frontend/.env
-frontend/.env.local
+
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
@@ -15,8 +14,7 @@ __pycache__/
 *.egg-info/
 .venv/
 venv/
-backend/.env
-backend/.env.droplet
+
 
 # ─── Jupyter / Notebooks ──────────────────────────────────────────────────
 .ipynb_checkpoints/
@@ -25,8 +23,8 @@ notebooks/datasets/*.csv
 
 # ─── Env & Secrets ─────────────────────────────────────────────────────────
 .env
-.env.local
-.env.*.local
+.env.*
+!.env.example
 *.key
 *.pem
 
