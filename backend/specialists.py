@@ -277,7 +277,8 @@ def run_specialist(name: str, patient: dict) -> dict:
             # _post_with_retry's own 429 backoff in agent_core.py, which only
             # covers retries WITHIN one HTTP call, not between specialist-
             # level attempts.
-            time.sleep(0.5 + random.uniform(0, 0.4))
+            remaining_stagger = max(STAGGER_DELAY_SECONDS.values()) - STAGGER_DELAY_SECONDS.get(name, 0.0)
+            time.sleep(remaining_stagger + 0.5 + random.uniform(0, 0.4))
             prompt = (
                 f"{user_prompt}\n\nYour previous attempt failed with this error:\n"
                 f"{last_reasoning}\n"
